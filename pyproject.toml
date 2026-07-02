@@ -13,6 +13,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's Depends()/Query()/etc. in argument defaults is the required idiom, not a bug.
+ignore = ["B008"]
 
 [tool.black]
 line-length = 100
