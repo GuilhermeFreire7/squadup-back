@@ -14,6 +14,33 @@ from app.models.match import Match
 from app.models.participant import Participant
 from app.models.user import User
 
+MATCH_CREATE_PAYLOAD = {
+    "sport": "football",
+    "title": "Pelada de domingo na arena",
+    "location": "Arena Botafogo — Rua General Polidoro, 400",
+    "date": "2026-05-25",
+    "time": "09:00:00",
+    "max_participants": 10,
+    "level": "intermediate",
+}
+
+
+def _register_and_login(client: TestClient, email: str = "organizer@example.com") -> str:
+    register_payload = {
+        "name": "Organizadora",
+        "email": email,
+        "password": "senha-super-secreta",
+        "age": 28,
+        "location": "Rio de Janeiro, RJ",
+        "favorite_sports": ["football"],
+    }
+    client.post("/auth/register", json=register_payload)
+    login_response = client.post(
+        "/auth/login",
+        json={"email": email, "password": register_payload["password"]},
+    )
+    return str(login_response.json()["access_token"])
+
 
 @pytest.fixture
 def db_client() -> Generator[tuple[TestClient, Session], None, None]:
@@ -204,3 +231,95 @@ def test_read_match_detail_returns_404_for_unknown_match(
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "MATCH_NOT_FOUND"
+
+
+def test_create_match_sets_authenticated_user_as_organizer(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+
+    response = client.post(
+        "/matches",
+        json=MATCH_CREATE_PAYLOAD,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["title"] == MATCH_CREATE_PAYLOAD["title"]
+    assert body["status"] == "open"
+    assert body["confirmed_count"] == 0
+    assert body["available_slots"] == MATCH_CREATE_PAYLOAD["max_participants"]
+
+    me_response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+    assert body["organizer_id"] == me_response.json()["id"]
+
+
+def test_create_match_appears_in_listing(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+
+    create_response = client.post(
+        "/matches",
+        json=MATCH_CREATE_PAYLOAD,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    match_id = create_response.json()["id"]
+
+    list_response = client.get("/matches")
+
+    assert list_response.status_code == 200
+    assert any(match["id"] == match_id for match in list_response.json())
+
+
+def test_create_match_rejects_missing_token(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+
+    response = client.post("/matches", json=MATCH_CREATE_PAYLOAD)
+
+    assert response.status_code == 401
+
+
+def test_create_match_rejects_non_positive_max_participants(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    payload = {**MATCH_CREATE_PAYLOAD, "max_participants": 0}
+
+    response = client.post(
+        "/matches",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_match_rejects_blank_title(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    payload = {**MATCH_CREATE_PAYLOAD, "title": ""}
+
+    response = client.post(
+        "/matches",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_match_rejects_invalid_sport(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    payload = {**MATCH_CREATE_PAYLOAD, "sport": "chess"}
+
+    response = client.post(
+        "/matches",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
