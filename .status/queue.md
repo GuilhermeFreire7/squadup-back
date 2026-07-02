@@ -1,10 +1,10 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório ainda vazio — nenhum código escrito até o momento (apenas `CLAUDE.md` e `.status/`).
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git inicializado e publicado em `https://github.com/GuilhermeFreire7/squadup-back` (branch `main`); nenhum código de aplicação escrito até o momento (apenas `CLAUDE.md`, `.status/` e `.gitignore`).
 
 ## Em andamento
 
-_Nenhuma tarefa em andamento no momento._
+_Nenhuma tarefa em andamento no momento. Próximo passo: iniciar Fase 1 (Estrutura inicial do projeto FastAPI)._
 
 ## Bloqueios
 
