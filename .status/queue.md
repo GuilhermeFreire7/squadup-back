@@ -1,30 +1,37 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git inicializado e publicado em `https://github.com/GuilhermeFreire7/squadup-back` (branch `main`); nenhum código de aplicação escrito até o momento (apenas `CLAUDE.md`, `.status/` e `.gitignore`).
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git inicializado e publicado em `https://github.com/GuilhermeFreire7/squadup-back` (branch `main`). Fase 1 concluída na branch `feature/fase-1-estrutura-inicial` (ainda não mergeada em `main`).
 
 ## Em andamento
 
-_Nenhuma tarefa em andamento no momento. Próximo passo: iniciar Fase 1 (Estrutura inicial do projeto FastAPI)._
+_Fase 1 implementada e validada localmente nesta branch; aguardando o commit/PR ser revisado e mergeado antes de iniciar a Fase 2 (Modelagem de dados e migrations)._
 
 ## Bloqueios
 
-- Nenhum bloqueio técnico conhecido. Decisões de stack ainda em aberto (ver `roadmap.md` §1): ORM (SQLModel vs. SQLAlchemy + Pydantic v2), Docker Compose com Postgres vs. SQLite para dev, hospedagem de deploy (Fase 11 — Railway/Render/Fly.io, nenhuma escolha feita ainda).
+- Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 
-## Próximas tarefas — Fase 1: Estrutura inicial do projeto
+## Fase 1 — Estrutura inicial do projeto (concluída)
 
-Ordem sugerida de execução (ver `roadmap.md` §3):
+Ordem de execução (ver `roadmap.md` §3):
 
-1. [ ] Inicializar projeto FastAPI (Poetry ou `venv` + `requirements.txt`)
-2. [ ] Definir estrutura de pastas (`app/{models,schemas,routers,services,core,tests}`)
-3. [ ] Configurar variáveis de ambiente (`.env` + `pydantic-settings`)
-4. [ ] Configurar banco de dados local (Docker Compose com Postgres, ou SQLite para começar)
-5. [ ] Configurar ORM (SQLModel ou SQLAlchemy + Pydantic v2) e Alembic para migrations
-6. [ ] Configurar testes (`pytest` + `httpx`/`TestClient`)
-7. [ ] Configurar lint/format (`ruff` + `black`)
-8. [ ] Configurar CORS liberando o origin do Expo (`npm run web`) e do app mobile
-9. [ ] Endpoint de healthcheck (`GET /health`)
+1. [x] Inicializar projeto FastAPI (`venv` + `requirements.txt`)
+2. [x] Definir estrutura de pastas (`app/{models,schemas,routers,services,core,tests}`)
+3. [x] Configurar variáveis de ambiente (`.env` + `pydantic-settings`, ver `app/core/config.py`)
+4. [x] Configurar banco de dados local (SQLite via `app/core/database.py`)
+5. [x] Configurar ORM (SQLModel) e Alembic para migrations (`alembic/env.py` lê `DATABASE_URL` das settings)
+6. [x] Configurar testes (`pytest` + `httpx`/`TestClient`, ver `app/tests/test_health.py`)
+7. [x] Configurar lint/format (`ruff` + `black`, config em `pyproject.toml`)
+8. [x] Configurar CORS liberando o origin do Expo (ver `cors_origins` em `app/core/config.py`)
+9. [x] Endpoint de healthcheck (`GET /health`)
 
-**Resultado esperado da Fase 1:** servidor FastAPI rodando localmente (`uvicorn app.main:app --reload`), endpoint `/health` respondendo, banco conectado, `pytest` executando (mesmo que só com o teste do healthcheck).
+**Resultado alcançado:** `uvicorn app.main:app --reload` sobe e `/health` responde `200 {"status":"ok","environment":"development"}`; `pytest` (1 passed), `ruff check` e `black --check` todos verdes; `alembic current` funcional apontando para o SQLite local.
+
+## Próxima tarefa — Fase 2: Modelagem de dados e migrations
+
+- Criar os modelos `User`, `Match`, `Participant`, `Message`, `Rating`, `Report` em `app/models/` (SQLModel), com FKs e enums descritos em `vision.md` §6;
+- Registrar os módulos de modelo em `alembic/env.py` (comentário já deixado no arquivo indicando onde importar);
+- Gerar a migration inicial via `alembic revision --autogenerate`;
+- Criar seed espelhando `../front/src/mocks/*.ts` (mesmos 6 usuários, ~13 partidas).
 
 ## Depois da Fase 1 (backlog, não iniciar ainda)
 
