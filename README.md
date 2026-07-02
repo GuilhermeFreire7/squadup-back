@@ -61,6 +61,7 @@ A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega
 
 - `GET /matches` — lista partidas com filtros opcionais via query string: `sport`, `date`, `location` (busca parcial, case-insensitive), `level`, `has_open_slots` (só partidas com vagas disponíveis).
 - `GET /matches/{id}` — detalhes de uma partida, com `organizer` e `participants` expandidos (perfil público de cada um); `404 MATCH_NOT_FOUND` se não existir.
+- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners` e `requires_approval` são opcionais.
 
 `confirmed_count` e `available_slots` são sempre calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca um campo solto no model `Match`, para não divergir da contagem real de participantes.
 

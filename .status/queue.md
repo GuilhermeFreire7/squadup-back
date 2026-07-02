@@ -4,23 +4,24 @@
 
 ## Em andamento
 
-_Fase 5 (Partidas — listagem, busca e detalhes) implementada e validada localmente (30 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com dados de seed) na branch `feature/fase-5-partidas`; aguardando revisão/merge em `dev` antes de iniciar a Fase 6 (Criação de partida)._
+_Fase 6 (Criação de partida) implementada e validada localmente (36 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn) na branch `feature/fase-6-criacao-partida`; aguardando revisão/merge em `dev` antes de iniciar a Fase 7 (Participação em partida)._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 
-## Próxima tarefa — Fase 6: Criação de partida
+## Próxima tarefa — Fase 7: Participação em partida
 
-- `POST /matches`, com o usuário autenticado como `organizer`;
-- Validação de payload (nível, `allow_beginners`, `requires_approval`, `max_participants` > 0).
+- `POST /matches/{id}/join` (cria `Participant` como `confirmed` ou `pending`, dependendo de `requires_approval`);
+- `POST /matches/{id}/leave`;
+- `POST /matches/{id}/participants/{userId}/approve` (organizador aprova solicitação pendente);
+- Atualização automática de `status` da partida para `full` quando `confirmed == max_participants`.
 
-## Depois da Fase 6 (backlog, não iniciar ainda)
+## Depois da Fase 7 (backlog, não iniciar ainda)
 
 Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
 
-- Fase 7 — Participação em partida
 - Fase 8 — Mensagens (chat da partida)
 - Fase 9 — Avaliação pós-partida (com validação de regra de negócio)
 - Fase 10 — Denúncia e moderação (RBAC mínimo)

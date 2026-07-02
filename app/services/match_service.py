@@ -6,7 +6,8 @@ from sqlmodel import Session, func, select
 from app.models.enums import ExperienceLevel, ParticipationStatus, Sport
 from app.models.match import Match
 from app.models.participant import Participant
-from app.schemas.match import MatchDetailRead, MatchRead, ParticipantRead
+from app.models.user import User
+from app.schemas.match import MatchCreate, MatchDetailRead, MatchRead, ParticipantRead
 from app.services.user_service import build_public_profile
 
 
@@ -71,6 +72,14 @@ def list_matches(
         results = [match for match in results if match.available_slots > 0]
 
     return results
+
+
+def create_match(session: Session, payload: MatchCreate, organizer: User) -> MatchRead:
+    match = Match(**payload.model_dump(), organizer_id=organizer.id)
+    session.add(match)
+    session.commit()
+    session.refresh(match)
+    return build_match_read(session, match)
 
 
 def get_match_detail(session: Session, match_id: str) -> MatchDetailRead:
