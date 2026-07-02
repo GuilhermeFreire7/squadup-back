@@ -3,12 +3,9 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
+import app.models  # noqa: F401  # registers models on SQLModel.metadata for autogenerate
 from alembic import context
 from app.core.config import get_settings
-
-# import model modules here so they register on SQLModel.metadata
-# for 'autogenerate' support, e.g.:
-# from app.models import user, match  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -6,6 +6,9 @@ Contexto completo do produto e do roadmap técnico em [`.status/`](.status/):
 - [`vision.md`](.status/vision.md) — visão do produto e modelo de dados
 - [`roadmap.md`](.status/roadmap.md) — fases de desenvolvimento e status de execução
 - [`queue.md`](.status/queue.md) — tarefas ativas e próximos passos
+- [`progress.md`](.status/progress.md) — histórico de tarefas concluídas
+
+> **Branch de trabalho principal: `dev`.** A branch `main` recebe merges apenas quando o time decidir promover uma versão estável.
 
 ## Stack
 
@@ -54,6 +57,12 @@ pip-audit -r requirements.txt                              # vulnerabilidades em
 
 Todas essas checagens (qualidade + segurança) também rodam automaticamente em CI a cada push/PR — ver [`.github/workflows/`](.github/workflows/).
 
+## Modelo de dados
+
+Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
+
+Regras de negócio que devem ser aplicadas na camada de serviço (não como colunas soltas): vagas/`status` de partida sempre derivados da contagem de `Participant.status == confirmed`; avaliação só válida com `match.status == closed` e ambos usuários `confirmed`.
+
 ## Migrations
 
 ```bash
@@ -62,6 +71,14 @@ alembic upgrade head
 ```
 
 A URL do banco é lida de `DATABASE_URL` (`.env`), a mesma fonte de verdade usada pela aplicação — ver `alembic/env.py` e `app/core/config.py`.
+
+## Seed de dados de exemplo
+
+```bash
+python -m app.seed
+```
+
+Popula o banco local com os mesmos dados de exemplo do protótipo do front (`../squadup-app/src/mocks/*.ts`): 6 usuários + 1 usuário de sistema (`system`, autor das mensagens automáticas do chat), 13 partidas, participações, mensagens, avaliações e denúncias. Idempotente — não faz nada se `user-1` já existir no banco. Senha de todos os usuários de seed: `changeme123` (placeholder de desenvolvimento, nunca usar em produção).
 
 ## Estrutura de pastas
 
