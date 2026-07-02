@@ -120,3 +120,34 @@ Mergeadas em `dev` via PR após Fase 1 + CI entrarem em produção:
 - GitHub Actions: `codeql-action` (PR #7), `upload-artifact` (PR #6)
 
 **Observabilidade:** nesta etapa o projeto ainda não tem logging estruturado nem métricas em runtime (não existiam antes desta tarefa e não foram inventados agora) — fica registrado como item do roadmap técnico (ver `roadmap.md` §17, "observabilidade") para quando houver serviço rodando de fato. O que o CI garante hoje nessa frente é cobertura de teste mínima visível por PR e checagem de que `alembic` não fica fora de sincronia com os models silenciosamente.
+
+## Fase 6 — Criação de partida (concluída e mergeada)
+
+Ordem de execução (ver `roadmap.md` §8):
+
+1. [x] `POST /matches` — cria partida com o usuário autenticado (`Depends(get_current_user)`, Fase 3) como `organizer_id`;
+2. [x] Validação de payload via `MatchCreate` (Pydantic): `max_participants` > 0, `title`/`location` não vazios, `sport`/`level` restritos aos enums, `allow_beginners`/`requires_approval` opcionais com default.
+
+**Decisões tomadas:**
+
+- `create_match` em `app/services/match_service.py` reaproveita `build_match_read` (já existente da Fase 5) para retornar `confirmed_count`/`available_slots` calculados, em vez de montar a resposta manualmente — mantém o cálculo de vagas em um único lugar.
+- Nenhum schema novo de leitura foi necessário: `MatchRead` (Fase 5) já cobre o retorno de `POST /matches`.
+
+**Resultado alcançado:** `pytest` (36 passed, cobertura acima do gate de 80%), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (`register` → `login` → `POST /matches` com token retorna a partida criada com `organizer_id` correto e aparece em `GET /matches` imediatamente; sem token retorna `401`; payload inválido retorna `422`).
+
+**Branch:** `feature/fase-6-criacao-partida`, cortada de `dev`, mergeada via PR #22 (commit `fff5490`).
+
+## Fase 7 — Participação em partida (concluída e mergeada)
+
+Ordem de execução (ver `roadmap.md` §9):
+
+1. [x] `POST /matches/{id}/join` — cria `Participant` como `confirmed` (partida sem `requires_approval` e com vaga) ou `pending` (partida com `requires_approval`); rejeita com `400 MATCH_NOT_JOINABLE` se a partida estiver `closed`/`cancelled`, `400 MATCH_FULL` se não houver vaga e não exigir aprovação, `400 ALREADY_PARTICIPATING` se já houver participação ativa;
+2. [x] `POST /matches/{id}/leave` — cancela a participação do usuário autenticado (`400 NOT_PARTICIPATING` se não houver participação ativa);
+3. [x] `POST /matches/{id}/participants/{userId}/approve` — organizador confirma uma solicitação `pending` (`403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `404 PENDING_PARTICIPANT_NOT_FOUND` se não houver solicitação pendente, `400 MATCH_FULL` se as vagas já tiverem sido preenchidas);
+4. [x] `status` da partida (`open`/`full`) recalculado automaticamente após join/leave/approve, a partir da contagem real de `Participant.status == confirmed` (`_sync_match_status` em `app/services/match_service.py`) — nunca um campo definido manualmente.
+
+**Bug corrigido durante a validação:** a checagem inicial de "partida cheia" no `join_match` comparava `match.status == MatchStatus.FULL` — um campo que só é sincronizado por join/leave/approve reais. Uma partida criada com vagas já esgotadas por outro caminho (fixture de teste, seed, migração de dados) nunca teria esse campo atualizado, permitindo join indevido. Corrigido para comparar a contagem real de confirmados (`get_confirmed_count(...) >= match.max_participants`) em vez do campo `status` — mesmo princípio de "nunca confiar em campo solto" já aplicado a `confirmed_count`/`available_slots` na Fase 5.
+
+**Resultado alcançado:** `pytest` (49 passed, 96.96% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (join simples confirma e preenche a última vaga marcando `full`; leave libera a vaga e volta a `open`; join com `requires_approval=true` fica `pending`, e `approve` do organizador confirma).
+
+**Branch:** `feature/fase-7-participacao-partida`, cortada de `dev`.

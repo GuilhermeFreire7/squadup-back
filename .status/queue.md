@@ -1,10 +1,10 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1 a 5, CI, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1 a 7, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
-_Fase 7 (Participação em partida) implementada e validada localmente (49 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de join/leave/approve) na branch `feature/fase-7-participacao-partida`; aguardando revisão/merge em `dev` antes de iniciar a Fase 8 (Mensagens)._
+_Fase 7 (Participação em partida) implementada e validada localmente (49 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de join/leave/approve) na branch `feature/fase-7-participacao-partida`, commit `a48b2ee`; aguardando revisão/merge em `dev` antes de iniciar a Fase 8 (Mensagens). Ver `progress.md` para o detalhamento completo._
 
 ## Bloqueios
 
@@ -29,6 +29,10 @@ Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a ant
 
 - **Refresh token não implementado** (Fase 3 entregou só access token de curta duração via `access_token_expire_minutes`). Adiado para a Fase 11 conforme o roadmap original — mas fica registrado aqui para não ser esquecido: hoje, quando o token expira, o único caminho é logar de novo.
 - **`main` está atrasada em relação a `dev`** desde a Fase 1 — nenhuma fase ainda foi promovida para `main`. Reavaliar quando/se isso importa (ex.: antes do primeiro deploy real na Fase 11).
+
+## Lições da Fase 7 (aplicar ao revisar código futuro)
+
+- **Nunca validar regra de negócio a partir de `Match.status` diretamente** — esse campo é só um cache recalculado a cada join/leave/approve (`_sync_match_status`); qualquer verificação de "a partida está cheia?" deve comparar a contagem real de `Participant.status == confirmed` contra `max_participants`, não o campo `status`. Um bug desse tipo foi pego pelos testes automatizados na própria Fase 7 antes do merge — mesma dívida técnica (D8/D12 do front) que motivou o backend a existir; não reintroduzir o padrão "campo solto que pode divergir" nas fases seguintes (Fase 9 tem risco parecido com `average_rating`).
 
 ## Notas
 
