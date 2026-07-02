@@ -8,7 +8,14 @@ from app.core.dependencies import get_current_user
 from app.models.enums import ExperienceLevel, Sport
 from app.models.user import User
 from app.schemas.match import MatchCreate, MatchDetailRead, MatchRead
-from app.services.match_service import create_match, get_match_detail, list_matches
+from app.services.match_service import (
+    approve_participant,
+    create_match,
+    get_match_detail,
+    join_match,
+    leave_match,
+    list_matches,
+)
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -65,3 +72,48 @@ def read_match_detail(
     session: Session = Depends(get_session),
 ) -> MatchDetailRead:
     return get_match_detail(session, match_id)
+
+
+@router.post(
+    "/{match_id}/join",
+    response_model=MatchRead,
+    summary="Participar de partida",
+    description="Cria uma participação para o usuário autenticado: confirmada de imediato, "
+    "ou pendente se a partida exigir aprovação do organizador.",
+)
+def join_match_route(
+    match_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> MatchRead:
+    return join_match(session, match_id, current_user)
+
+
+@router.post(
+    "/{match_id}/leave",
+    response_model=MatchRead,
+    summary="Cancelar participação",
+    description="Cancela a participação do usuário autenticado na partida.",
+)
+def leave_match_route(
+    match_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> MatchRead:
+    return leave_match(session, match_id, current_user)
+
+
+@router.post(
+    "/{match_id}/participants/{user_id}/approve",
+    response_model=MatchRead,
+    summary="Aprovar solicitação de participação",
+    description="Confirma a participação pendente de um usuário. Apenas o organizador da "
+    "partida pode aprovar.",
+)
+def approve_participant_route(
+    match_id: str,
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> MatchRead:
+    return approve_participant(session, match_id, user_id, current_user)

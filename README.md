@@ -65,6 +65,14 @@ A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega
 
 `confirmed_count` e `available_slots` são sempre calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca um campo solto no model `Match`, para não divergir da contagem real de participantes.
 
+## Participação em partida
+
+- `POST /matches/{id}/join` — usuário autenticado solicita participação; cria `Participant` como `confirmed` (partidas sem `requires_approval`) ou `pending` (aguardando aprovação do organizador); `400 MATCH_NOT_JOINABLE` se a partida estiver `closed`/`cancelled`, `400 MATCH_FULL` se não houver vagas e a partida não exigir aprovação, `400 ALREADY_PARTICIPATING` se já houver participação ativa.
+- `POST /matches/{id}/leave` — cancela a participação do usuário autenticado; `400 NOT_PARTICIPATING` se não houver participação ativa.
+- `POST /matches/{id}/participants/{userId}/approve` — organizador confirma uma solicitação `pending`; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `404 PENDING_PARTICIPANT_NOT_FOUND` se não houver solicitação pendente para o usuário, `400 MATCH_FULL` se as vagas já tiverem sido preenchidas.
+
+O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join/leave/approve a partir da contagem real de `Participant.status == confirmed` — nunca definido manualmente.
+
 ## Testes e qualidade
 
 ```bash
