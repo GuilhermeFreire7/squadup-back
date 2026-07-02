@@ -1,8 +1,10 @@
 from collections.abc import Generator
 from datetime import date, time
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
@@ -77,6 +79,16 @@ def _make_user(session: Session, id_: str, name: str) -> User:
     session.commit()
     session.refresh(user)
     return user
+
+
+def _join(client: TestClient, match_id: str, token: str) -> Response:
+    headers = {"Authorization": f"Bearer {token}"}
+    return cast(Response, client.post(f"/matches/{match_id}/join", headers=headers))
+
+
+def _leave(client: TestClient, match_id: str, token: str) -> Response:
+    headers = {"Authorization": f"Bearer {token}"}
+    return cast(Response, client.post(f"/matches/{match_id}/leave", headers=headers))
 
 
 def _make_match(
@@ -323,3 +335,231 @@ def test_create_match_rejects_invalid_sport(db_client: tuple[TestClient, Session
     )
 
     assert response.status_code == 422
+
+
+def test_join_match_confirms_when_no_approval_required(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    token = _register_and_login(client, email="player@example.com")
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["confirmed_count"] == 1
+    assert body["status"] == "open"
+
+
+def test_join_match_stays_pending_when_approval_required(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    match.requires_approval = True
+    session.add(match)
+    session.commit()
+    token = _register_and_login(client, email="player@example.com")
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["confirmed_count"] == 0
+
+
+def test_join_match_sets_status_full_when_last_slot_taken(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=1)
+    token = _register_and_login(client, email="player@example.com")
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "full"
+    assert body["available_slots"] == 0
+
+
+def test_join_match_rejects_when_full_and_no_approval(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=1)
+    session.add(
+        Participant(match_id=match.id, user_id=organizer.id, status=ParticipationStatus.CONFIRMED)
+    )
+    session.commit()
+    token = _register_and_login(client, email="player@example.com")
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "MATCH_FULL"
+
+
+def test_join_match_rejects_duplicate_participation(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    token = _register_and_login(client, email="player@example.com")
+    _join(client, match.id, token)
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "ALREADY_PARTICIPATING"
+
+
+def test_join_match_rejects_closed_match(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, status=MatchStatus.CLOSED)
+    token = _register_and_login(client, email="player@example.com")
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "MATCH_NOT_JOINABLE"
+
+
+def test_join_match_returns_404_for_unknown_match(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client, email="player@example.com")
+
+    response = client.post(
+        "/matches/does-not-exist/join", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_leave_match_cancels_confirmed_participation(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    token = _register_and_login(client, email="player@example.com")
+    _join(client, match.id, token)
+
+    response = _leave(client, match.id, token)
+
+    assert response.status_code == 200
+    assert response.json()["confirmed_count"] == 0
+
+
+def test_leave_match_reopens_full_match(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=1)
+    token = _register_and_login(client, email="player@example.com")
+    _join(client, match.id, token)
+
+    response = _leave(client, match.id, token)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "open"
+
+
+def test_leave_match_rejects_when_not_participating(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    token = _register_and_login(client, email="player@example.com")
+
+    response = _leave(client, match.id, token)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "NOT_PARTICIPATING"
+
+
+def test_approve_participant_confirms_pending_request(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    match.requires_approval = True
+    session.add(match)
+    session.commit()
+
+    player_token = _register_and_login(client, email="player@example.com")
+    player_id = client.get("/users/me", headers={"Authorization": f"Bearer {player_token}"}).json()[
+        "id"
+    ]
+    _join(client, match.id, player_token)
+
+    response = client.post(
+        f"/matches/{match.id}/participants/{player_id}/approve",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["confirmed_count"] == 1
+
+
+def test_approve_participant_rejects_non_organizer(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    match.requires_approval = True
+    session.add(match)
+    session.commit()
+
+    player_token = _register_and_login(client, email="player@example.com")
+    player_id = client.get("/users/me", headers={"Authorization": f"Bearer {player_token}"}).json()[
+        "id"
+    ]
+    _join(client, match.id, player_token)
+
+    other_token = _register_and_login(client, email="other@example.com")
+
+    response = client.post(
+        f"/matches/{match.id}/participants/{player_id}/approve",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "NOT_MATCH_ORGANIZER"
+
+
+def test_approve_participant_rejects_when_no_pending_request(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+
+    response = client.post(
+        f"/matches/{match.id}/participants/unknown-user/approve",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "PENDING_PARTICIPANT_NOT_FOUND"
