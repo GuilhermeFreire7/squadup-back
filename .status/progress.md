@@ -33,7 +33,7 @@ Adicionado em `.github/` (branch `feature/ci-pipelines`, commit `95700bd`), sem 
 
 **Merge:** mergeado em `dev`.
 
-## Fase 2 — Modelagem de dados e migrations (concluída, aguardando merge)
+## Fase 2 — Modelagem de dados e migrations (concluída e mergeada)
 
 Ordem de execução (ver `roadmap.md` §4):
 
@@ -53,7 +53,28 @@ Ordem de execução (ver `roadmap.md` §4):
 
 **Resultado alcançado:** `alembic upgrade head` cria as 6 tabelas (`users`, `matches`, `messages`, `participants`, `ratings`, `reports`) mais `alembic_version`; `alembic check` não detecta divergência entre models e migration; `python -m app.seed` popula 7 usuários (6 + sistema), 13 partidas, 43 participações, 15 mensagens, 7 avaliações e 4 denúncias, com contagens batendo exatamente com os mocks do front; `pytest` (10 passed, 94.55% cobertura, gate de 80% ok), `ruff check`, `black --check`, `mypy app` (strict) e `bandit` todos verdes.
 
-**Branch:** `feature/fase-2-modelagem-dados`, cortada de `dev`, ainda não mergeada.
+**Branch:** `feature/fase-2-modelagem-dados`, cortada de `dev`, mergeada via PR #18.
+
+## Fase 3 — Autenticação (concluída)
+
+Ordem de execução (ver `roadmap.md` §5):
+
+1. [x] `POST /auth/register` — cria usuário com senha hasheada (reaproveitando `hash_password` da Fase 2), rejeita e-mail duplicado com `409 EMAIL_ALREADY_REGISTERED`;
+2. [x] `POST /auth/login` — valida e-mail/senha e retorna JWT (`python-jose`, HS256, expiração via `access_token_expire_minutes`), erro `401 INVALID_CREDENTIALS` para credenciais inválidas;
+3. [x] `GET /auth/me` — retorna o usuário autenticado a partir do token (`OAuth2PasswordBearer` apontando para `/auth/login`);
+4. [x] `app/core/dependencies.py::get_current_user` — dependency reutilizável para os demais routers decodificarem o JWT e carregarem o `User`;
+5. [ ] Refresh token — adiado para a Fase 11, conforme já previsto no `roadmap.md`.
+
+**Decisões tomadas:**
+
+- `email-validator` adicionado a `requirements.txt` (dependência exigida pelo `EmailStr` do Pydantic, usado em `RegisterRequest`/`LoginRequest`), junto com `types-python-jose` para o `mypy` estrito não reclamar de stubs faltando (mesmo padrão do `types-passlib` já usado).
+- Regra `B008` do `ruff` (bloqueava `Depends(...)` em default de argumento) precisou ser adicionada à lista de ignore em `pyproject.toml` — é o idiom padrão e obrigatório do FastAPI, não um bug real.
+- `UserRead` nunca expõe `hashed_password`; testado explicitamente em `test_auth.py`.
+- Fixture `client` adicionada em `app/tests/conftest.py`, com banco SQLite in-memory isolado por teste via `dependency_overrides` de `get_session` — necessário porque `test_health.py` usa um `TestClient` global que compartilha o banco real (`squadup.db`), o que quebraria isolamento entre testes de auth.
+
+**Resultado alcançado:** `pytest` (18 passed, 96.60% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente ponta a ponta com `uvicorn` local (`register` → `login` retorna JWT → `/auth/me` com token retorna `200`, sem token retorna `401`).
+
+**Branch:** `feature/fase-3-autenticacao`, cortada de `dev`.
 
 ## Dependabot — Atualizações de dependências (concluídas e mergeadas)
 

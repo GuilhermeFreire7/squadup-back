@@ -39,6 +39,16 @@ uvicorn app.main:app --reload
 - Healthcheck: `GET http://127.0.0.1:8000/health`
 - Documentação interativa: `http://127.0.0.1:8000/docs` (Swagger) e `/redoc`
 
+## Autenticação
+
+JWT (`python-jose`, HS256) com senha hasheada via `passlib[bcrypt]`:
+
+- `POST /auth/register` — cadastra um usuário (`name`, `email`, `password`, `age`, `location`, `bio?`, `favorite_sports`); retorna `409 EMAIL_ALREADY_REGISTERED` se o e-mail já existir.
+- `POST /auth/login` — valida e-mail/senha e retorna `{ access_token, token_type }`; `401 INVALID_CREDENTIALS` em caso de falha.
+- `GET /auth/me` — retorna o usuário autenticado a partir do header `Authorization: Bearer <token>`.
+
+A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
+
 ## Testes e qualidade
 
 ```bash
