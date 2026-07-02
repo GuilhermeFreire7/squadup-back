@@ -76,6 +76,24 @@ Ordem de execução (ver `roadmap.md` §5):
 
 **Branch:** `feature/fase-3-autenticacao`, cortada de `dev`.
 
+## Fase 4 — Perfil de usuário (concluída)
+
+Ordem de execução (ver `roadmap.md` §6):
+
+1. [x] `GET /users/{id}` — perfil público (`PublicProfileRead`: sem `email`/`role`), `404 USER_NOT_FOUND` se o usuário não existir;
+2. [x] `GET /users/me` / `PATCH /users/me` — perfil completo (`MyProfileRead`) e edição parcial do próprio usuário, reutilizando `Depends(get_current_user)` da Fase 3;
+3. [x] `average_rating` (média de `Rating.overall`) e `matches_played` (contagem de `Participant.status == confirmed`) calculados em `app/services/user_service.py` a cada request — nunca armazenados como coluna solta.
+
+**Decisões tomadas:**
+
+- Dois schemas de leitura distintos (`PublicProfileRead` e `MyProfileRead`, este último estendendo o primeiro com `email`/`role`) para impedir vazamento de dados privados no perfil público — não reaproveitou `UserRead` da Fase 3 porque esse schema não tem os campos derivados.
+- `UserUpdate` usa todos os campos opcionais e `model_dump(exclude_unset=True)` no service, para suportar atualização parcial via `PATCH` sem sobrescrever campos não enviados.
+- Rota `/users/me` declarada antes de `/users/{user_id}` no router — ordem de registro do FastAPI, senão `"me"` seria capturado como `user_id`.
+
+**Resultado alcançado:** `pytest` (23 passed, 97.13% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente ponta a ponta com `uvicorn` local (`register` → `login` → `GET /users/me` com métricas derivadas → `PATCH /users/me` aplica mudança parcial → `GET /users/{id}` de outro usuário retorna perfil público sem `email`/`role`).
+
+**Branch:** `feature/fase-4-perfil-usuario`, cortada de `dev`.
+
 ## Dependabot — Atualizações de dependências (concluídas e mergeadas)
 
 Mergeadas em `dev` via PR após Fase 1 + CI entrarem em produção:

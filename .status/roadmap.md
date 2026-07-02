@@ -6,8 +6,8 @@
 |------|-----------|--------|
 | Fase 1 | Estrutura inicial do projeto | 🟢 Concluída |
 | Fase 2 | Modelagem de dados e migrations | 🟢 Concluída |
-| Fase 3 | Autenticação | 🟡 Concluída, aguardando merge em `dev` |
-| Fase 4 | Perfil de usuário | ⚪ Não iniciada |
+| Fase 3 | Autenticação | 🟢 Concluída |
+| Fase 4 | Perfil de usuário | 🟡 Concluída, aguardando merge em `dev` |
 | Fase 5 | Partidas — listagem, busca e detalhes | ⚪ Não iniciada |
 | Fase 6 | Criação de partida | ⚪ Não iniciada |
 | Fase 7 | Participação em partida | ⚪ Não iniciada |
@@ -16,7 +16,7 @@
 | Fase 10 | Denúncia e moderação | ⚪ Não iniciada |
 | Fase 11 | Hardening e integração final com o front | ⚪ Não iniciada |
 
-**Progresso geral:** 3/11 fases concluídas · Fase 1 concluída e mergeada em `dev` (branch de trabalho principal; `main` ainda está atrasada) via `feature/fase-1-estrutura-inicial` (servidor FastAPI rodando, `/health` respondendo, SQLite conectado via SQLModel, Alembic configurado, `pytest`/`ruff`/`black` verdes). CI/CD (`feature/ci-pipelines`) também mergeado em `dev`. Fase 2 concluída e mergeada em `dev` (PR #18): models, migration inicial e seed espelhando o front. Fase 3 (Autenticação) concluída e validada localmente em `feature/fase-3-autenticacao` (register/login/me com JWT), ainda não mergeada. Ver `vision.md` para o contexto completo e `progress.md` para o histórico detalhado.
+**Progresso geral:** 3/11 fases concluídas · Fase 1 concluída e mergeada em `dev` (branch de trabalho principal; `main` ainda está atrasada) via `feature/fase-1-estrutura-inicial` (servidor FastAPI rodando, `/health` respondendo, SQLite conectado via SQLModel, Alembic configurado, `pytest`/`ruff`/`black` verdes). CI/CD (`feature/ci-pipelines`) também mergeado em `dev`. Fase 2 concluída e mergeada em `dev` (PR #18): models, migration inicial e seed espelhando o front. Fase 3 (Autenticação) concluída e mergeada em `dev` (PR #19, commit `a2366e0`): register/login/me com JWT. Ver `vision.md` para o contexto completo e `progress.md` para o histórico detalhado.
 
 Stack proposta (ver `vision.md`, seção 5): Python + **FastAPI** · banco de dados relacional (PostgreSQL em produção, SQLite aceitável em dev) · ORM a definir (SQLModel ou SQLAlchemy + Pydantic) · Alembic para migrations · JWT para autenticação.
 
