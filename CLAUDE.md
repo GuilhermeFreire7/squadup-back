@@ -11,6 +11,8 @@ Update `.status/queue.md` when starting or finishing a task. Run `/update-status
 
 Create a new branch before starting a new batch of tasks that cover the same features, in witch you will commit them all after finishing.
 
+Always update README.md with all relevant modifications before commit
+
 ---
 
 ## 1. Context & State

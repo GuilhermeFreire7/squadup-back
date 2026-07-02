@@ -34,9 +34,11 @@ ENV/
 # Testing / coverage
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+.bandit_cache/
 
 # Databases
 *.db

@@ -1,14 +1,27 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git inicializado e publicado em `https://github.com/GuilhermeFreire7/squadup-back` (branch `main`). Fase 1 concluída na branch `feature/fase-1-estrutura-inicial` (ainda não mergeada em `main`).
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git inicializado e publicado em `https://github.com/GuilhermeFreire7/squadup-back` (branch `main`). Fase 1 concluída na branch `feature/fase-1-estrutura-inicial`; pipelines de CI (qualidade + segurança) adicionados na branch `feature/ci-pipelines`. Nenhuma das duas ainda mergeada em `main`.
 
 ## Em andamento
 
-_Fase 1 implementada e validada localmente nesta branch; aguardando o commit/PR ser revisado e mergeado antes de iniciar a Fase 2 (Modelagem de dados e migrations)._
+_Fase 1 e CI implementados e validados localmente; aguardando commits/PRs serem revisados e mergeados antes de iniciar a Fase 2 (Modelagem de dados e migrations)._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
+
+## CI — Qualidade e Segurança (concluído)
+
+Adicionado em `.github/` (branch `feature/ci-pipelines`), sem ser uma fase numerada do roadmap — infraestrutura transversal que passa a valer a partir de agora:
+
+- `.github/workflows/ci.yml`: job `quality` (ruff, black --check, mypy strict, pytest com cobertura mínima de 80% via `pytest-cov`, upload do `coverage.xml` como artifact) + job `alembic-check` (`alembic upgrade head` e `alembic check` para pegar migration faltante antes do merge);
+- `.github/workflows/security.yml`: `bandit` (SAST, exclui `app/tests`), `pip-audit` (CVEs em dependências, também roda semanalmente via `schedule`), `CodeQL` (análise estática do GitHub) e `gitleaks` (varredura de segredos no diff e no histórico do PR);
+- `.github/dependabot.yml`: atualizações semanais de dependências pip e GitHub Actions;
+- `.gitleaks.toml`: allowlist só para o placeholder `change-me-in-.env` do `.env.example`, para não gerar falso positivo;
+- `pyproject.toml` ganhou seções `[tool.mypy]` (strict, com override para `app/tests` e `alembic`), `[tool.bandit]` e `[tool.coverage.run]`; `requirements.txt` ganhou `pytest-cov`, `mypy`, `bandit`, `pip-audit`;
+- Corrigido durante a validação: `pytest` estava pinado em `>=8.3` (vulnerável a `CVE-2025-71176`, corrigido só na 9.0.3) e `black` em `<25.0` (vulnerável a `CVE-2026-32274`, corrigido na 26.3.1) — ambos os pisos foram subidos e a suíte revalidada (`pytest 9.1.1`, `black 26.5.1`) sem quebras.
+
+**Observabilidade:** nesta etapa o projeto ainda não tem logging estruturado nem métricas em runtime (não existiam antes desta tarefa e não foram inventados agora) — fica registrado como item do roadmap técnico (ver `roadmap.md` §17, "observabilidade") para quando houver serviço rodando de fato. O que o CI garante hoje nessa frente é cobertura de teste mínima visível por PR e checagem de que `alembic` não fica fora de sincronia com os models silenciosamente.
 
 ## Fase 1 — Estrutura inicial do projeto (concluída)
 
