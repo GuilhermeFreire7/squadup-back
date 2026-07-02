@@ -1,0 +1,13 @@
+title = "SquadUp Backend gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders that look like secrets but are not"
+regexes = [
+  '''change-me-in-\.env''',
+]
+paths = [
+  '''\.env\.example$''',
+]
