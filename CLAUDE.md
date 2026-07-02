@@ -9,6 +9,8 @@ Read these files at the start of **every session**, in this order:
 
 Update `.status/queue.md` when starting or finishing a task. Run `/update-status` at the end of the session to sync `progress.md`, `roadmap.md`, and `queue.md`.
 
+Create a new branch before starting a new batch of tasks that cover the same features, in witch you will commit them all after finishing.
+
 ---
 
 ## 1. Context & State

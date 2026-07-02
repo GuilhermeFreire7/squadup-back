@@ -4,7 +4,7 @@
 
 | Fase | Descrição | Status |
 |------|-----------|--------|
-| Fase 1 | Estrutura inicial do projeto | ⚪ Não iniciada |
+| Fase 1 | Estrutura inicial do projeto | 🟢 Concluída |
 | Fase 2 | Modelagem de dados e migrations | ⚪ Não iniciada |
 | Fase 3 | Autenticação | ⚪ Não iniciada |
 | Fase 4 | Perfil de usuário | ⚪ Não iniciada |
@@ -16,7 +16,7 @@
 | Fase 10 | Denúncia e moderação | ⚪ Não iniciada |
 | Fase 11 | Hardening e integração final com o front | ⚪ Não iniciada |
 
-**Progresso geral:** 0/11 fases · repositório backend ainda vazio (nenhum código escrito até o momento; ver `vision.md` para o contexto completo).
+**Progresso geral:** 1/11 fases · Fase 1 concluída na branch `feature/fase-1-estrutura-inicial` (servidor FastAPI rodando, `/health` respondendo, SQLite conectado via SQLModel, Alembic configurado, `pytest`/`ruff`/`black` verdes). Ver `vision.md` para o contexto completo.
 
 Stack proposta (ver `vision.md`, seção 5): Python + **FastAPI** · banco de dados relacional (PostgreSQL em produção, SQLite aceitável em dev) · ORM a definir (SQLModel ou SQLAlchemy + Pydantic) · Alembic para migrations · JWT para autenticação.
 
