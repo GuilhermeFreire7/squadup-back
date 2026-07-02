@@ -49,6 +49,14 @@ JWT (`python-jose`, HS256) com senha hasheada via `passlib[bcrypt]`:
 
 A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
 
+## Perfil de usuário
+
+- `GET /users/me` — perfil completo do usuário autenticado (`Authorization: Bearer <token>`), incluindo `average_rating` e `matches_played`.
+- `PATCH /users/me` — atualiza campos do próprio perfil (`name`, `photo_url`, `age`, `location`, `bio`, `favorite_sports`, `level`); aceita atualização parcial.
+- `GET /users/{id}` — perfil público de qualquer usuário (sem `email`/`role`), com as mesmas métricas derivadas.
+
+`average_rating` (média de `Rating.overall`) e `matches_played` (contagem de `Participant.status == confirmed`) são sempre calculados na consulta em `app/services/user_service.py` — nunca armazenados como coluna solta, para não divergirem dos dados reais.
+
 ## Testes e qualidade
 
 ```bash

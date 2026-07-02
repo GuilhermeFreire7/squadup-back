@@ -4,24 +4,23 @@
 
 ## Em andamento
 
-_Fase 3 implementada e validada localmente (pytest, ruff, black, mypy verdes + smoke test manual via uvicorn) na branch `feature/fase-3-autenticacao`; aguardando revisão/merge em `dev` antes de iniciar a Fase 4 (Perfil de usuário)._
+_Fase 4 (Perfil de usuário) implementada e validada localmente (pytest, ruff, black, mypy verdes + smoke test manual via uvicorn) na branch `feature/fase-4-perfil-usuario`; aguardando revisão/merge em `dev` antes de iniciar a Fase 5 (Partidas)._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 
-## Próxima tarefa — Fase 4: Perfil de usuário
+## Próxima tarefa — Fase 5: Partidas — listagem, busca e detalhes
 
-- `GET /users/{id}` (perfil público);
-- `GET /users/me` / `PATCH /users/me` (editar perfil, usando `get_current_user` já criado na Fase 3);
-- `average_rating` e `matches_played` como campos **derivados** (calculados a partir de `Rating`/`Participant`, nunca armazenados soltos).
+- `GET /matches` com filtros de query string (esporte, data, local, nível, "só com vagas");
+- `GET /matches/{id}` com participantes e organizador expandidos;
+- Contagem de vagas disponíveis calculada a partir de `Participant.status == confirmed`, nunca um campo solto.
 
-## Depois da Fase 4 (backlog, não iniciar ainda)
+## Depois da Fase 5 (backlog, não iniciar ainda)
 
 Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
 
-- Fase 5 — Partidas: listagem, busca e detalhes
 - Fase 6 — Criação de partida
 - Fase 7 — Participação em partida
 - Fase 8 — Mensagens (chat da partida)
