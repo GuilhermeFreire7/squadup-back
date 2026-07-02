@@ -94,6 +94,24 @@ Ordem de execução (ver `roadmap.md` §6):
 
 **Branch:** `feature/fase-4-perfil-usuario`, cortada de `dev`.
 
+## Fase 5 — Partidas: listagem, busca e detalhes (concluída)
+
+Ordem de execução (ver `roadmap.md` §7):
+
+1. [x] `GET /matches` — lista com filtros de query string: `sport`, `date`, `location` (busca parcial case-insensitive via `LOWER(...) LIKE`), `level`, `has_open_slots`;
+2. [x] `GET /matches/{id}` — detalhe com `organizer` e `participants` expandidos (cada participante como `PublicProfileRead` + `status`), `404 MATCH_NOT_FOUND` se não existir;
+3. [x] `confirmed_count`/`available_slots` calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca campo solto no model `Match`.
+
+**Decisões tomadas:**
+
+- Filtro `has_open_slots` é aplicado em memória (após calcular `available_slots` para cada partida), não em SQL — mantém o cálculo de vagas em um único lugar (`build_match_read`) em vez de duplicar a lógica de contagem numa subquery.
+- `MatchDetailRead` estende `MatchRead` adicionando `organizer`/`participants`, mesmo padrão de composição de schemas usado em `PublicProfileRead`/`MyProfileRead` na Fase 4.
+- Nomes dos campos de query `date`/`time` no schema colidiam com os tipos `datetime.date`/`datetime.time` na anotação — resolvido importando como `date_`/`time_` (`PydanticUserError: unevaluable-type-annotation`).
+
+**Resultado alcançado:** `pytest` (30 passed, 97.19% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local sobre o banco de seed (`GET /matches?sport=football&has_open_slots=true` e `GET /matches/match-1` retornando dados corretos, incluindo organizador e participantes expandidos).
+
+**Branch:** `feature/fase-5-partidas`, cortada de `dev`.
+
 ## Dependabot — Atualizações de dependências (concluídas e mergeadas)
 
 Mergeadas em `dev` via PR após Fase 1 + CI entrarem em produção:

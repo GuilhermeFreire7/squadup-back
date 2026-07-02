@@ -1,27 +1,25 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1, CI, Fase 2, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1 a 5, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
-_Fase 4 (Perfil de usuário) implementada e validada localmente (pytest, ruff, black, mypy verdes + smoke test manual via uvicorn) na branch `feature/fase-4-perfil-usuario`; aguardando revisão/merge em `dev` antes de iniciar a Fase 5 (Partidas)._
+_Fase 5 (Partidas — listagem, busca e detalhes) implementada e validada localmente (30 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com dados de seed) na branch `feature/fase-5-partidas`; aguardando revisão/merge em `dev` antes de iniciar a Fase 6 (Criação de partida)._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 
-## Próxima tarefa — Fase 5: Partidas — listagem, busca e detalhes
+## Próxima tarefa — Fase 6: Criação de partida
 
-- `GET /matches` com filtros de query string (esporte, data, local, nível, "só com vagas");
-- `GET /matches/{id}` com participantes e organizador expandidos;
-- Contagem de vagas disponíveis calculada a partir de `Participant.status == confirmed`, nunca um campo solto.
+- `POST /matches`, com o usuário autenticado como `organizer`;
+- Validação de payload (nível, `allow_beginners`, `requires_approval`, `max_participants` > 0).
 
-## Depois da Fase 5 (backlog, não iniciar ainda)
+## Depois da Fase 6 (backlog, não iniciar ainda)
 
 Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
 
-- Fase 6 — Criação de partida
 - Fase 7 — Participação em partida
 - Fase 8 — Mensagens (chat da partida)
 - Fase 9 — Avaliação pós-partida (com validação de regra de negócio)
