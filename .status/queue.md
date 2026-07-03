@@ -4,24 +4,24 @@
 
 ## Em andamento
 
-_Fase 7 (Participação em partida) implementada e validada localmente (49 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de join/leave/approve) na branch `feature/fase-7-participacao-partida`, commit `a48b2ee`; aguardando revisão/merge em `dev` antes de iniciar a Fase 8 (Mensagens). Ver `progress.md` para o detalhamento completo._
+_Fase 8 (Mensagens) implementada e validada localmente (60 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de envio/listagem e checagem de acesso) na branch `feature/fase-8-mensagens`; aguardando revisão/merge em `dev` antes de iniciar a Fase 9 (Avaliação pós-partida). Ver `progress.md` para o detalhamento completo._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 
-## Próxima tarefa — Fase 8: Mensagens (chat da partida)
+## Próxima tarefa — Fase 9: Avaliação pós-partida
 
-- `GET /matches/{id}/messages` (histórico, paginado);
-- `POST /matches/{id}/messages` (nova mensagem, `created_at` gerado pelo servidor);
-- Real-time via WebSocket não é requisito desta fase (polling/refetch no front é aceitável).
+- `POST /matches/{id}/ratings/{userId}` com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`);
+- `GET /users/{id}/ratings` (avaliações recebidas, para exibir no perfil);
+- Validação de regra de negócio no servidor: só é possível avaliar se `match.status == closed` e tanto o avaliador quanto o avaliado estavam `confirmed` nessa partida.
+- Cuidado (ver lição da Fase 7 abaixo): `average_rating` do perfil já é derivado corretamente em `app/services/user_service.py::get_average_rating` desde a Fase 4 — não introduzir um campo solto ao adicionar a validação desta fase.
 
-## Depois da Fase 8 (backlog, não iniciar ainda)
+## Depois da Fase 9 (backlog, não iniciar ainda)
 
 Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
 
-- Fase 9 — Avaliação pós-partida (com validação de regra de negócio)
 - Fase 10 — Denúncia e moderação (RBAC mínimo)
 - Fase 11 — Hardening e integração final com o front
 
