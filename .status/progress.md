@@ -150,4 +150,20 @@ Ordem de execução (ver `roadmap.md` §9):
 
 **Resultado alcançado:** `pytest` (49 passed, 96.96% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (join simples confirma e preenche a última vaga marcando `full`; leave libera a vaga e volta a `open`; join com `requires_approval=true` fica `pending`, e `approve` do organizador confirma).
 
+**Branch:** `feature/fase-7-participacao-partida`, cortada de `dev`, mergeada via PR #23 (commit `95c13e2`).
+
+## Fase 8 — Mensagens (chat da partida) (implementada)
+
+Ordem de execução (ver `roadmap.md` §10):
+
+1. [x] `GET /matches/{id}/messages` — histórico de mensagens em ordem cronológica (`ORDER BY created_at`), paginado via `skip`/`limit` (`limit` padrão `50`, teto `100`);
+2. [x] `POST /matches/{id}/messages` — cria mensagem com `sender_id` do usuário autenticado e `created_at` gerado pelo servidor (`default_factory` do model `Message`, já existente desde a Fase 2);
+3. [x] WebSocket não implementado — fora do escopo desta fase, conforme `roadmap.md` §10.
+
+**Decisão tomada além do escopo literal do `vision.md` §6 (Message):** ambos os endpoints exigem que o usuário autenticado seja o organizador da partida ou um participante com `Participant.status == confirmed` (`_ensure_can_access_chat` em `app/services/message_service.py`), retornando `403 NOT_MATCH_PARTICIPANT` caso contrário — o `vision.md` não especificava essa regra de acesso, mas o chat da partida não faz sentido aberto a qualquer usuário autenticado da plataforma. `MessageRead` expande `sender` como `PublicProfileRead` (mesmo padrão de `ParticipantRead` na Fase 5), em vez de expor só `sender_id`, para o front poder renderizar nome/avatar no chat sem uma segunda chamada.
+
+**Resultado alcançado:** `pytest` (60 passed, 97.25% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (organizador envia e lista mensagens; usuário sem participação recebe `403 NOT_MATCH_PARTICIPANT`; após `join` bem-sucedido, o mesmo usuário consegue enviar mensagem).
+
+**Branch:** `feature/fase-8-mensagens`, cortada de `dev`, commit `4eecaa4`, aguardando revisão/merge.
+
 **Branch:** `feature/fase-7-participacao-partida`, cortada de `dev`.
