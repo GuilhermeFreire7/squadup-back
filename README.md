@@ -80,6 +80,15 @@ O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join
 
 Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao organizador da partida ou a participantes com `Participant.status == confirmed` — `403 NOT_MATCH_PARTICIPANT` caso contrário, `404 MATCH_NOT_FOUND` se a partida não existir. Não há WebSocket nesta fase; o front deve fazer polling/refetch.
 
+## Avaliação pós-partida
+
+- `POST /matches/{id}/ratings/{userId}` — usuário autenticado avalia outro usuário com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`, cada um de 1 a 5) e `comment` opcional. Regras de negócio aplicadas no servidor: `400 MATCH_NOT_CLOSED` se `match.status != closed`; `400 CANNOT_RATE_SELF` se tentar avaliar a si mesmo; `403 NOT_MATCH_PARTICIPANT` se o avaliador não tinha `Participant.status == confirmed` nessa partida; `400 RATED_USER_NOT_PARTICIPANT` se o avaliado não tinha `confirmed` nessa partida; `400 ALREADY_RATED` se o mesmo par avaliador/avaliado já tiver uma avaliação para essa partida.
+- `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` expandido como perfil público.
+
+`average_rating` do perfil (`GET /users/{id}`, `GET /users/me`) é sempre recalculado a partir das linhas de `ratings` — nenhuma avaliação é somada manualmente a um total solto.
+
+> Nenhum endpoint desta fase encerra uma partida (`status → closed`); hoje isso só acontece via seed ou manipulação direta do banco. Ver `.status/queue.md` para o acompanhamento dessa lacuna.
+
 ## Testes e qualidade
 
 ```bash

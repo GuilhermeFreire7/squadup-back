@@ -152,7 +152,7 @@ Ordem de execução (ver `roadmap.md` §9):
 
 **Branch:** `feature/fase-7-participacao-partida`, cortada de `dev`, mergeada via PR #23 (commit `95c13e2`).
 
-## Fase 8 — Mensagens (chat da partida) (implementada)
+## Fase 8 — Mensagens (chat da partida) (concluída e mergeada)
 
 Ordem de execução (ver `roadmap.md` §10):
 
@@ -164,6 +164,24 @@ Ordem de execução (ver `roadmap.md` §10):
 
 **Resultado alcançado:** `pytest` (60 passed, 97.25% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (organizador envia e lista mensagens; usuário sem participação recebe `403 NOT_MATCH_PARTICIPANT`; após `join` bem-sucedido, o mesmo usuário consegue enviar mensagem).
 
-**Branch:** `feature/fase-8-mensagens`, cortada de `dev`, commit `4eecaa4`, aguardando revisão/merge.
+**Branch:** `feature/fase-8-mensagens`, cortada de `dev`, mergeada via PR #24 (commit `25ff076`).
 
-**Branch:** `feature/fase-7-participacao-partida`, cortada de `dev`.
+## Fase 9 — Avaliação pós-partida (implementada, aguardando merge em `dev`)
+
+Ordem de execução (ver `roadmap.md` §11):
+
+1. [x] `POST /matches/{id}/ratings/{userId}` — registra uma avaliação (`punctuality`, `respect`, `behavior`, `presence`, `overall`, `comment?`) do usuário autenticado sobre outro usuário, no contexto de uma partida;
+2. [x] `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro;
+3. [x] Validação de regra de negócio no servidor (`app/services/rating_service.py`): só é possível avaliar se `match.status == closed` **e** tanto o avaliador quanto o avaliado estavam `Participant.status == confirmed` nessa partida — checagem feita contra a tabela `Participant`, nunca contra um campo solto.
+
+**Decisões tomadas além do escopo literal do `vision.md` §6 (Rating):**
+
+- `CANNOT_RATE_SELF` (400) — impede autoavaliação, regra implícita não coberta pelo mock original.
+- `ALREADY_RATED` (400) — impede duplicar avaliação do mesmo par avaliador/avaliado na mesma partida (checagem por `match_id` + `rater_user_id` + `rated_user_id`).
+- Assimetria de códigos de erro para o participante ausente: avaliador não confirmado retorna `403 NOT_MATCH_PARTICIPANT` (mesmo código de acesso já usado no chat da Fase 8 — o avaliador não tem permissão para agir), enquanto avaliado não confirmado retorna `400 RATED_USER_NOT_PARTICIPANT` (o alvo da avaliação é que é inválido, não uma questão de permissão de quem chama).
+- `RatingRead.rater` expande `PublicProfileRead` (mesmo padrão de `MessageRead.sender` na Fase 8), em vez de expor só `rater_user_id`.
+- `average_rating` do perfil (`app/services/user_service.py::get_average_rating`, já existente desde a Fase 4) não precisou de nenhuma alteração — passou a refletir avaliações reais automaticamente assim que `POST /matches/{id}/ratings/{userId}` começou a inserir linhas em `ratings`, confirmando que o valor é de fato derivado e não um campo solto (lição da Fase 7).
+
+**Resultado alcançado:** `pytest` (72 passed, 97.55% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (avaliação antes do fechamento da partida retorna `400 MATCH_NOT_CLOSED`; após fechar a partida diretamente no banco, avaliação de participante confirmado por outro participante confirmado retorna `201` e o `average_rating` do avaliado em `GET /users/{id}` passa a refletir a nota; segunda tentativa do mesmo par retorna `400 ALREADY_RATED`; autoavaliação retorna `400 CANNOT_RATE_SELF`).
+
+**Branch:** `feature/fase-9-avaliacao`, cortada de `dev`.

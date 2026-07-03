@@ -4,25 +4,26 @@
 
 ## Em andamento
 
-_Fase 8 (Mensagens) implementada e validada localmente (60 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de envio/listagem e checagem de acesso) na branch `feature/fase-8-mensagens`, commit `4eecaa4`; aguardando revisão/merge em `dev` antes de iniciar a Fase 9 (Avaliação pós-partida). Ver `progress.md` para o detalhamento completo._
+_Fase 9 (Avaliação pós-partida) implementada e validada localmente (72 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn cobrindo bloqueio antes do fechamento, criação, dedupe, autoavaliação bloqueada e `average_rating` refletindo a nota real) na branch `feature/fase-9-avaliacao`; aguardando revisão/merge em `dev` antes de iniciar a Fase 10 (Denúncia e moderação). Ver `progress.md` para o detalhamento completo._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
+- Não há endpoint para o organizador encerrar uma partida (`status → closed`) — a Fase 9 depende disso para o fluxo de avaliação, mas nenhuma fase do roadmap previu esse endpoint explicitamente. Hoje o fechamento só acontece manualmente (ex.: seed, migração de dados, ou uma futura automação por data/hora da partida). Avaliar na Fase 10/11 se é preciso um `PATCH /matches/{id}` ou uma rotina que feche partidas cuja `date`/`time` já passou.
 
-## Próxima tarefa — Fase 9: Avaliação pós-partida
+## Próxima tarefa — Fase 10: Denúncia e moderação
 
-- `POST /matches/{id}/ratings/{userId}` com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`);
-- `GET /users/{id}/ratings` (avaliações recebidas, para exibir no perfil);
-- Validação de regra de negócio no servidor: só é possível avaliar se `match.status == closed` e tanto o avaliador quanto o avaliado estavam `confirmed` nessa partida.
-- Cuidado (ver lição da Fase 7 abaixo): `average_rating` do perfil já é derivado corretamente em `app/services/user_service.py::get_average_rating` desde a Fase 4 — não introduzir um campo solto ao adicionar a validação desta fase.
+- `POST /reports`;
+- `GET /reports` (lista para moderação — requer role de admin);
+- `PATCH /reports/{id}` (ações: `archive`, `warn`, `ban`);
+- RBAC mínimo via campo `role` em `User` (`user`/`admin`, já existente desde a Fase 2) — `403` para não-admin tentando acessar `GET/PATCH /reports`.
+- Precedente de acesso a seguir (lição das Fases 8/9 abaixo): usar o mesmo padrão de dependency reutilizável para checar `role == admin`, análogo a `get_current_user`.
 
-## Depois da Fase 9 (backlog, não iniciar ainda)
+## Depois da Fase 10 (backlog, não iniciar ainda)
 
 Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
 
-- Fase 10 — Denúncia e moderação (RBAC mínimo)
 - Fase 11 — Hardening e integração final com o front
 
 ## Dívidas técnicas conhecidas
@@ -38,6 +39,12 @@ Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a ant
 
 - **Chat de partida não é público para qualquer usuário autenticado** — o `vision.md` §6 não especificava regra de acesso para `Message`, mas `GET/POST /matches/{id}/messages` só fazem sentido restritos a quem participa de fato da partida. Adotado o critério "organizador OU `Participant.status == confirmed`" (`_ensure_can_access_chat` em `app/services/message_service.py`), com `403 NOT_MATCH_PARTICIPANT` caso contrário. Vale como precedente para decisões de acesso análogas nas Fases 9 (quem pode avaliar) e 10 (quem pode denunciar/ver denúncias).
 - **Padrão de expansão de relacionamento em `Read` schemas** — `MessageRead.sender` reaproveita `PublicProfileRead` via `build_public_profile` (mesmo padrão de `ParticipantRead.user` na Fase 5), em vez de expor só o ID. Manter esse padrão para qualquer novo schema que referencie `User` (ex.: avaliações na Fase 9).
+
+## Lições da Fase 9 (aplicar ao revisar código futuro)
+
+- **Nem toda ausência de participante confirmado é uma questão de permissão do usuário autenticado** — ao validar `POST /matches/{id}/ratings/{userId}`, o avaliador (`current_user`) sem `Participant.status == confirmed` retorna `403 NOT_MATCH_PARTICIPANT` (mesmo código/semântica do chat na Fase 8: falta de permissão de quem chama), mas o avaliado sem `confirmed` retorna `400 RATED_USER_NOT_PARTICIPANT` (o alvo da ação é que é inválido, não uma questão de acesso). Distinguir esses dois casos ao desenhar validações análogas na Fase 10 (ex.: denunciar um usuário que nunca participou da partida referenciada).
+- **`average_rating` continuou 100% derivado sem nenhuma alteração** — `app/services/user_service.py::get_average_rating` já calculava a média a partir da tabela `ratings` desde a Fase 4; a Fase 9 só precisou inserir linhas reais em `ratings` para o valor passar a refletir avaliações verdadeiras. Confirma que nunca introduzir um campo solto (`average_rating`/`matches_played` como coluna) foi a decisão certa — reforça a mesma lição da Fase 7 para o `status` de partida.
+- **Falta um endpoint de fechamento de partida** — a regra de negócio da Fase 9 depende de `match.status == closed`, mas nenhuma fase anterior implementou uma forma de chegar nesse estado além de manipulação direta do banco (seed/migração). Ver "Bloqueios" acima — decidir isso antes ou durante a Fase 10/11, senão o fluxo de avaliação nunca é alcançável via API pura no front.
 
 ## Notas
 
