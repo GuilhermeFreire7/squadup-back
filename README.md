@@ -73,6 +73,13 @@ A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega
 
 O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join/leave/approve a partir da contagem real de `Participant.status == confirmed` — nunca definido manualmente.
 
+## Mensagens (chat da partida)
+
+- `GET /matches/{id}/messages` — histórico de mensagens em ordem cronológica, paginado via `skip`/`limit` (padrão `limit=50`, máximo `100`).
+- `POST /matches/{id}/messages` — envia uma nova mensagem (`text`, não vazio); `created_at` é gerado pelo servidor.
+
+Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao organizador da partida ou a participantes com `Participant.status == confirmed` — `403 NOT_MATCH_PARTICIPANT` caso contrário, `404 MATCH_NOT_FOUND` se a partida não existir. Não há WebSocket nesta fase; o front deve fazer polling/refetch.
+
 ## Testes e qualidade
 
 ```bash

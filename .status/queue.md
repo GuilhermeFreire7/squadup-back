@@ -1,27 +1,27 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-02. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1 a 7, CI, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-03. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1 a 8, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
-_Fase 7 (Participação em partida) implementada e validada localmente (49 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de join/leave/approve) na branch `feature/fase-7-participacao-partida`, commit `a48b2ee`; aguardando revisão/merge em `dev` antes de iniciar a Fase 8 (Mensagens). Ver `progress.md` para o detalhamento completo._
+_Fase 8 (Mensagens) implementada e validada localmente (60 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn com fluxos de envio/listagem e checagem de acesso) na branch `feature/fase-8-mensagens`, commit `4eecaa4`; aguardando revisão/merge em `dev` antes de iniciar a Fase 9 (Avaliação pós-partida). Ver `progress.md` para o detalhamento completo._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 
-## Próxima tarefa — Fase 8: Mensagens (chat da partida)
+## Próxima tarefa — Fase 9: Avaliação pós-partida
 
-- `GET /matches/{id}/messages` (histórico, paginado);
-- `POST /matches/{id}/messages` (nova mensagem, `created_at` gerado pelo servidor);
-- Real-time via WebSocket não é requisito desta fase (polling/refetch no front é aceitável).
+- `POST /matches/{id}/ratings/{userId}` com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`);
+- `GET /users/{id}/ratings` (avaliações recebidas, para exibir no perfil);
+- Validação de regra de negócio no servidor: só é possível avaliar se `match.status == closed` e tanto o avaliador quanto o avaliado estavam `confirmed` nessa partida.
+- Cuidado (ver lição da Fase 7 abaixo): `average_rating` do perfil já é derivado corretamente em `app/services/user_service.py::get_average_rating` desde a Fase 4 — não introduzir um campo solto ao adicionar a validação desta fase.
 
-## Depois da Fase 8 (backlog, não iniciar ainda)
+## Depois da Fase 9 (backlog, não iniciar ainda)
 
 Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
 
-- Fase 9 — Avaliação pós-partida (com validação de regra de negócio)
 - Fase 10 — Denúncia e moderação (RBAC mínimo)
 - Fase 11 — Hardening e integração final com o front
 
@@ -33,6 +33,11 @@ Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a ant
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
 - **Nunca validar regra de negócio a partir de `Match.status` diretamente** — esse campo é só um cache recalculado a cada join/leave/approve (`_sync_match_status`); qualquer verificação de "a partida está cheia?" deve comparar a contagem real de `Participant.status == confirmed` contra `max_participants`, não o campo `status`. Um bug desse tipo foi pego pelos testes automatizados na própria Fase 7 antes do merge — mesma dívida técnica (D8/D12 do front) que motivou o backend a existir; não reintroduzir o padrão "campo solto que pode divergir" nas fases seguintes (Fase 9 tem risco parecido com `average_rating`).
+
+## Lições da Fase 8 (aplicar ao revisar código futuro)
+
+- **Chat de partida não é público para qualquer usuário autenticado** — o `vision.md` §6 não especificava regra de acesso para `Message`, mas `GET/POST /matches/{id}/messages` só fazem sentido restritos a quem participa de fato da partida. Adotado o critério "organizador OU `Participant.status == confirmed`" (`_ensure_can_access_chat` em `app/services/message_service.py`), com `403 NOT_MATCH_PARTICIPANT` caso contrário. Vale como precedente para decisões de acesso análogas nas Fases 9 (quem pode avaliar) e 10 (quem pode denunciar/ver denúncias).
+- **Padrão de expansão de relacionamento em `Read` schemas** — `MessageRead.sender` reaproveita `PublicProfileRead` via `build_public_profile` (mesmo padrão de `ParticipantRead.user` na Fase 5), em vez de expor só o ID. Manter esse padrão para qualquer novo schema que referencie `User` (ex.: avaliações na Fase 9).
 
 ## Notas
 
