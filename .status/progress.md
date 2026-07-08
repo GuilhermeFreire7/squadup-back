@@ -166,7 +166,7 @@ Ordem de execução (ver `roadmap.md` §10):
 
 **Branch:** `feature/fase-8-mensagens`, cortada de `dev`, mergeada via PR #24 (commit `25ff076`).
 
-## Fase 9 — Avaliação pós-partida (implementada, aguardando merge em `dev`)
+## Fase 9 — Avaliação pós-partida (concluída e mergeada)
 
 Ordem de execução (ver `roadmap.md` §11):
 
@@ -184,4 +184,25 @@ Ordem de execução (ver `roadmap.md` §11):
 
 **Resultado alcançado:** `pytest` (72 passed, 97.55% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (avaliação antes do fechamento da partida retorna `400 MATCH_NOT_CLOSED`; após fechar a partida diretamente no banco, avaliação de participante confirmado por outro participante confirmado retorna `201` e o `average_rating` do avaliado em `GET /users/{id}` passa a refletir a nota; segunda tentativa do mesmo par retorna `400 ALREADY_RATED`; autoavaliação retorna `400 CANNOT_RATE_SELF`).
 
-**Branch:** `feature/fase-9-avaliacao`, cortada de `dev`.
+**Branch:** `feature/fase-9-avaliacao`, cortada de `dev`, mergeada via PR #25 (commit `ffccd58`).
+
+## Fase 10 — Denúncia e moderação (implementada)
+
+Ordem de execução (ver `roadmap.md` §12):
+
+1. [x] `POST /reports` — usuário autenticado denuncia outro usuário (`reported_user_id`, `reason`, `description`, `match_id` opcional);
+2. [x] `GET /reports` — lista todas as denúncias, mais recentes primeiro, restrito a `role == admin`;
+3. [x] `PATCH /reports/{id}` — aplica ação de moderação (`archive`/`warn`/`ban`), restrito a `role == admin`;
+4. [x] RBAC mínimo via `app.core.dependencies.get_current_admin` — nova dependency que reaproveita `get_current_user` (Fase 3) e adiciona a checagem de `role`, retornando `403 ADMIN_ONLY` caso contrário (mesmo padrão de dependency reutilizável recomendado em `queue.md`).
+
+**Decisões tomadas além do escopo literal do `vision.md` §6 (Report):**
+
+- `CANNOT_REPORT_SELF` (400) — impede autodenúncia, mesma lógica de `CANNOT_RATE_SELF` na Fase 9.
+- `match_id` é opcional no payload (conforme `vision.md`), mas quando informado é validado contra a tabela `matches` (`404 MATCH_NOT_FOUND`) — nenhuma validação de participação do denunciante/denunciado nessa partida foi adicionada, por não estar prevista no escopo e por `match_id` já ser opcional por design (denúncia pode não estar ligada a uma partida específica).
+- `PATCH /reports/{id}` só aceita ação sobre denúncia `status == pending` (`400 REPORT_ALREADY_RESOLVED` caso contrário) — evita reprocessar uma denúncia já arquivada/resolvida, decisão nova não coberta pelo protótipo mockado (que não tinha essa transição de estado).
+- `action: ban` só atualiza `Report.status` para `banned` — não há campo de bloqueio de conta em `User` nem enforcement real de banimento (ex.: impedir login). Confirma o escopo explícito do `roadmap.md` §12/§16: "replicar as 3 ações já previstas no protótipo", não um sistema de moderação com efeito real sobre a conta.
+- `ReportRead` expande `reported_user`/`reporter` como `PublicProfileRead` (mesmo padrão de `RatingRead.rater` na Fase 9 e `MessageRead.sender` na Fase 8).
+
+**Resultado alcançado:** `pytest` (85 passed, 97.81% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (usuário comum denuncia outro com sucesso; usuário comum tentando `GET`/`PATCH /reports` recebe `403 ADMIN_ONLY`; admin lista a denúncia e resolve com `action=warn`, retornando `status=warned`; segunda tentativa de resolver a mesma denúncia retorna `400 REPORT_ALREADY_RESOLVED`; autodenúncia retorna `400 CANNOT_REPORT_SELF`).
+
+**Branch:** `feature/fase-10-denuncia-moderacao`, cortada de `dev`.
