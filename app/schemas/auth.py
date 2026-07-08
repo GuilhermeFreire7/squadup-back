@@ -20,4 +20,9 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str = Field(examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."])
+    refresh_token: str = Field(examples=["ZmFrZS1yZWZyZXNoLXRva2VuLXZhbHVl..."])
     token_type: str = Field(default="bearer", examples=["bearer"])
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(examples=["ZmFrZS1yZWZyZXNoLXRva2VuLXZhbHVl..."])

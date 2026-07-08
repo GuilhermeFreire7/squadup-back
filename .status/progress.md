@@ -205,7 +205,7 @@ Ordem de execução (ver `roadmap.md` §12):
 
 **Resultado alcançado:** `pytest` (85 passed, 97.81% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (usuário comum denuncia outro com sucesso; usuário comum tentando `GET`/`PATCH /reports` recebe `403 ADMIN_ONLY`; admin lista a denúncia e resolve com `action=warn`, retornando `status=warned`; segunda tentativa de resolver a mesma denúncia retorna `400 REPORT_ALREADY_RESOLVED`; autodenúncia retorna `400 CANNOT_REPORT_SELF`).
 
-**Branch:** `feature/fase-10-denuncia-moderacao`, cortada de `dev`.
+**Branch:** `feature/fase-10-denuncia-moderacao`, cortada de `dev`, mergeada via PR #26 (commit `b11b834`).
 
 ## Segurança — Migração `python-jose` → `PyJWT` (nesta mesma branch)
 
@@ -214,3 +214,24 @@ Ordem de execução (ver `roadmap.md` §12):
 **Correção:** substituído `python-jose[cryptography]` por `PyJWT` (`requirements.txt`), que não depende de `ecdsa`. `app/core/security.py` trocou `from jose import JWTError, jwt` por `import jwt` e `except JWTError` por `except jwt.PyJWTError` — API de `encode`/`decode` compatível, nenhuma mudança de comportamento. Removido também `types-python-jose` de `requirements.txt` (`PyJWT` já publica seus próprios tipos).
 
 **Resultado:** `pip-audit -r requirements.txt` — nenhuma vulnerabilidade conhecida; `pytest` (85 passed, 97.81% cobertura), `ruff check`, `black --check`, `mypy app` (strict) e `bandit` todos verdes.
+
+## Fase 11 — Hardening e integração final (em andamento)
+
+Duas decisões que ficaram pendentes desde fases anteriores (ver `queue.md`, "Bloqueios" e "Dívidas técnicas conhecidas" nas versões antigas deste arquivo) foram resolvidas nesta sessão, junto com o usuário, antes de iniciar a implementação:
+
+1. **Refresh token — implementar agora** (adiado desde a Fase 3):
+   - Nova tabela `refresh_tokens` (`app/models/refresh_token.py`, migration `b4fcc804c2cd`): `user_id` (FK), `token_hash` (SHA-256 do token opaco, único, indexado — nunca o token em texto puro), `expires_at`, `revoked`, `created_at`.
+   - `app/core/security.py` ganhou `create_refresh_token()` (`secrets.token_urlsafe(48)`), `hash_refresh_token()` (SHA-256 — não `bcrypt`, pois o token já é de alta entropia e não precisa de hash lento) e `utc_now_naive()` (datetimes lidos do SQLite voltam sem `tzinfo`; comparar direto com `datetime.now(UTC)` lançaria `TypeError`).
+   - `POST /auth/login` agora retorna `{ access_token, refresh_token, token_type }` (`TokenResponse` ganhou o campo); `POST /auth/register` não muda (continua retornando só o `UserRead`, sem login automático).
+   - `POST /auth/refresh` (novo): troca um refresh token válido por um novo par, **rotacionando** — o token usado é sempre marcado `revoked = True`, então reuso (ex.: token vazado sendo usado depois do dono já ter rotacionado) retorna `401 INVALID_REFRESH_TOKEN`.
+   - `POST /auth/logout` (novo): revoga um refresh token explicitamente, `204` em caso de sucesso.
+   - `refresh_token_expire_days` (padrão 30) adicionado a `app/core/config.py`.
+2. **Fechamento de partida — endpoint manual do organizador** (bloqueio pendente desde a Fase 9, nenhuma fase do roadmap previa esse endpoint):
+   - `POST /matches/{id}/close` (novo, `app/services/match_service.py::close_match`): só o organizador pode encerrar (`403 NOT_MATCH_ORGANIZER` caso contrário); só a partir de `open`/`full`/`pending_approval` (`400 MATCH_ALREADY_RESOLVED` se já `closed`/`cancelled`). Diferente de `open`/`full` (sempre recalculados a partir da contagem de confirmados, lição da Fase 7), `closed` é a única transição de `status` setada diretamente — não há como derivá-la de nenhuma contagem, é uma decisão do organizador.
+   - Isso desbloqueia o fluxo de avaliação pós-partida (Fase 9) via API pura, sem precisar de seed/manipulação direta do banco.
+
+**Efeito colateral corrigido:** o `alembic/script.py.mako` (template usado por `alembic revision --autogenerate`) ainda gerava código no estilo antigo (`typing.Union`/`typing.Sequence`), incompatível com o padrão `X | Y` já usado na migration inicial e exigido por `ruff`/`black`. Corrigido o template para gerar já no formato certo; a migration `b4fcc804c2cd` foi ajustada manualmente e formatada com `black`.
+
+**Resultado alcançado até agora:** `pytest` (96 passed, 97.89% cobertura), `ruff check`, `black --check`, `mypy app` (strict) e `alembic check` (sem divergência model↔migration) todos verdes; fluxo validado manualmente com `uvicorn` local (login retorna par de tokens; `POST /auth/refresh` rotaciona e retorna novo par; reuso do refresh token antigo retorna `401 INVALID_REFRESH_TOKEN`; novo access token funciona em `GET /auth/me`; `POST /matches/{id}/close` fecha a partida do próprio usuário organizador, segunda tentativa retorna `400 MATCH_ALREADY_RESOLVED`; `POST /auth/logout` revoga o refresh token, tentativa de refresh subsequente retorna `401`).
+
+**Branch:** `feature/fase-11-hardening`, cortada de `dev`, commit `4160a01` — PR #27 aberto. Itens ainda pendentes da fase: revisão de cobertura de testes, documentação OpenAPI, CORS e variáveis de ambiente de produção, decisão de hospedagem, integração incremental do front via React Query — ver `queue.md` (seção "Checkpointer" tem o estado exato para retomar).

@@ -544,6 +544,86 @@ def test_approve_participant_rejects_non_organizer(
     assert response.json()["detail"]["code"] == "NOT_MATCH_ORGANIZER"
 
 
+def test_close_match_sets_status_closed(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+
+    response = client.post(
+        f"/matches/{match.id}/close",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "closed"
+
+
+def test_close_match_rejects_non_organizer(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    other_token = _register_and_login(client, email="other@example.com")
+
+    response = client.post(
+        f"/matches/{match.id}/close",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "NOT_MATCH_ORGANIZER"
+
+
+def test_close_match_rejects_already_closed_match(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(
+        session, "match-1", organizer, max_participants=4, status=MatchStatus.CLOSED
+    )
+
+    response = client.post(
+        f"/matches/{match.id}/close",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "MATCH_ALREADY_RESOLVED"
+
+
+def test_close_match_returns_404_for_unknown_match(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+
+    response = client.post(
+        "/matches/does-not-exist/close", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_close_match_rejects_missing_token(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+
+    response = client.post(f"/matches/{match.id}/close")
+
+    assert response.status_code == 401
+
+
 def test_approve_participant_rejects_when_no_pending_request(
     db_client: tuple[TestClient, Session],
 ) -> None:

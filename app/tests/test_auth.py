@@ -40,6 +40,7 @@ def test_login_returns_token(client: TestClient) -> None:
     body = response.json()
     assert body["token_type"] == "bearer"
     assert body["access_token"]
+    assert body["refresh_token"]
 
 
 def test_login_rejects_wrong_password(client: TestClient) -> None:
@@ -87,3 +88,71 @@ def test_me_rejects_invalid_token(client: TestClient) -> None:
     response = client.get("/auth/me", headers={"Authorization": "Bearer invalid-token"})
 
     assert response.status_code == 401
+
+
+def _login(client: TestClient) -> dict[str, str]:
+    client.post("/auth/register", json=VALID_PAYLOAD)
+    response = client.post(
+        "/auth/login",
+        json={"email": VALID_PAYLOAD["email"], "password": VALID_PAYLOAD["password"]},
+    )
+    return dict(response.json())
+
+
+def test_refresh_returns_new_token_pair(client: TestClient) -> None:
+    tokens = _login(client)
+
+    response = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["access_token"]
+    assert body["refresh_token"]
+    assert body["refresh_token"] != tokens["refresh_token"]
+
+
+def test_refresh_rotates_and_invalidates_old_refresh_token(client: TestClient) -> None:
+    tokens = _login(client)
+    client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+
+    response = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_refresh_rejects_unknown_token(client: TestClient) -> None:
+    response = client.post("/auth/refresh", json={"refresh_token": "does-not-exist"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_refreshed_access_token_grants_access(client: TestClient) -> None:
+    tokens = _login(client)
+
+    refresh_response = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    new_access_token = refresh_response.json()["access_token"]
+
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {new_access_token}"})
+
+    assert response.status_code == 200
+
+
+def test_logout_revokes_refresh_token(client: TestClient) -> None:
+    tokens = _login(client)
+
+    logout_response = client.post("/auth/logout", json={"refresh_token": tokens["refresh_token"]})
+    assert logout_response.status_code == 204
+
+    refresh_response = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+
+    assert refresh_response.status_code == 401
+    assert refresh_response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_logout_rejects_unknown_token(client: TestClient) -> None:
+    response = client.post("/auth/logout", json={"refresh_token": "does-not-exist"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"

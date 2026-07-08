@@ -180,6 +180,35 @@ def leave_match(session: Session, match_id: str, user: User) -> MatchRead:
     return build_match_read(session, match)
 
 
+def close_match(session: Session, match_id: str, organizer: User) -> MatchRead:
+    match = _get_match_or_404(session, match_id)
+
+    if match.organizer_id != organizer.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "NOT_MATCH_ORGANIZER",
+                "message": "Apenas o organizador pode encerrar a partida.",
+            },
+        )
+
+    if match.status in (MatchStatus.CLOSED, MatchStatus.CANCELLED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "MATCH_ALREADY_RESOLVED",
+                "message": "Esta partida já foi encerrada ou cancelada.",
+            },
+        )
+
+    match.status = MatchStatus.CLOSED
+    session.add(match)
+    session.commit()
+    session.refresh(match)
+
+    return build_match_read(session, match)
+
+
 def approve_participant(
     session: Session, match_id: str, user_id: str, organizer: User
 ) -> MatchRead:

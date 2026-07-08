@@ -4,9 +4,14 @@ from sqlmodel import Session
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserRead
-from app.services.auth_service import authenticate_user, register_user
+from app.services.auth_service import (
+    authenticate_user,
+    refresh_tokens,
+    register_user,
+    revoke_refresh_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -40,3 +45,24 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)) -> Tok
 )
 def read_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Renovar sessão",
+    description="Troca um refresh token válido por um novo par de access/refresh token "
+    "(rotação: o refresh token usado é invalidado).",
+)
+def refresh(payload: RefreshRequest, session: Session = Depends(get_session)) -> TokenResponse:
+    return refresh_tokens(session, payload.refresh_token)
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Encerrar sessão",
+    description="Revoga o refresh token informado, impedindo seu uso futuro.",
+)
+def logout(payload: RefreshRequest, session: Session = Depends(get_session)) -> None:
+    revoke_refresh_token(session, payload.refresh_token)

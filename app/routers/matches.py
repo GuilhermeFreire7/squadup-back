@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.match import MatchCreate, MatchDetailRead, MatchRead
 from app.services.match_service import (
     approve_participant,
+    close_match,
     create_match,
     get_match_detail,
     join_match,
@@ -101,6 +102,22 @@ def leave_match_route(
     session: Session = Depends(get_session),
 ) -> MatchRead:
     return leave_match(session, match_id, current_user)
+
+
+@router.post(
+    "/{match_id}/close",
+    response_model=MatchRead,
+    summary="Encerrar partida",
+    description="Encerra a partida (status → closed). Apenas o organizador pode encerrar, e "
+    "somente enquanto ela ainda não estiver encerrada ou cancelada. Pré-requisito para o "
+    "fluxo de avaliação pós-partida.",
+)
+def close_match_route(
+    match_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> MatchRead:
+    return close_match(session, match_id, current_user)
 
 
 @router.post(

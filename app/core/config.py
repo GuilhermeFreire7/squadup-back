@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./squadup.db"
     secret_key: str = "change-me-in-.env"
     access_token_expire_minutes: int = 60 * 24
+    refresh_token_expire_days: int = 30
     cors_origins: list[str] = [
         "http://localhost:8081",
         "http://localhost:19006",
