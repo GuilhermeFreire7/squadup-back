@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -33,3 +35,16 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
     except jwt.PyJWTError:
         return None
     return payload
+
+
+def utc_now_naive() -> datetime:
+    """UTC "agora" sem tzinfo, para comparar com datetimes lidos do SQLite (sempre naive)."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

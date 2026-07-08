@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.message import Message
     from app.models.participant import Participant
     from app.models.rating import Rating
+    from app.models.refresh_token import RefreshToken
     from app.models.report import Report
 
 
@@ -50,3 +51,4 @@ class User(SQLModel, table=True):
         back_populates="reporter_user",
         sa_relationship_kwargs={"foreign_keys": "Report.reporter_user_id"},
     )
+    refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
