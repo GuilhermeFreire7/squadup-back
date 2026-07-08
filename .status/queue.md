@@ -63,7 +63,7 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 | 2 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | ⚪ |
 | 3 | Rotina de purge de `refresh_tokens` expirados/revogados — dívida técnica já registrada acima | ⚪ |
 | 4 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | ⚪ |
-| 5 | Regenerar `/openapi.json` após as mudanças de D-C/D-D e confirmar com o front que bate com `backend-contract.md` | ⚪ |
+| 5 | Regenerar `/openapi.json` após as mudanças de D-C/D-D e confirmar com o front que bate com `backend-contract.md` | 🟢 |
 | 6 | Commitar e abrir PR de `feature/fase-12-contrato` para `dev` depois que o usuário revisar o diff (ainda não commitado nesta sessão) | ⚪ |
 
 ## Notas
@@ -85,5 +85,12 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - **README.md atualizado** nas seções "Mensagens" (menção à mensagem de sistema automática), "Avaliação pós-partida" (`RatingRead.match` como `MatchRef`) e "Denúncia e moderação" (`ReportRead.match` como `MatchRef | null`).
 - **Ambiente local:** durante esta sessão, `alembic upgrade head` falhou porque a tabela `alembic_version` do `squadup.db` local estava vazia (inconsistência de sessão anterior, não relacionada ao código) — corrigido com `alembic stamp head` (banco já tinha todas as tabelas de `b4fcc804c2cd`, só faltava o carimbo de versão). Nenhum servidor de teste ficou rodando ao final (portas 8001/8002 liberadas).
 - **Dívida nova registrada:** D-C/D-D foram aprovados por instrução direta do usuário nesta sessão, sem uma rodada formal de confirmação com o front contra `../front/.status/backend-contract.md` — ver "Dívidas técnicas conhecidas" acima.
-- **Próximo passo concreto (não iniciado):** os 6 itens da tabela "Próxima tarefa" acima — nenhum tem dependência entre si, podem ser feitos em qualquer ordem. O mais imediato é o item 5 (regenerar `/openapi.json` e confirmar com o front) e o item 6 (decidir se este commit vai para PR/push agora ou se aguarda mais trabalho acumulado na branch).
+- **Próximo passo concreto:** restam os itens 1–4 e 6 da tabela "Próxima tarefa" acima (infraestrutura de produção + decisão de PR) — nenhum tem dependência entre si, podem ser feitos em qualquer ordem.
 - **Nada bloqueado.**
+
+## Atualização — item 5 concluído (sessão 22, 2026-07-08)
+
+- Servidor local (`uvicorn`) subido na branch `feature/fase-12-contrato` (commit `46ca52c`) e `/openapi.json` regenerado e inspecionado diretamente.
+- Confirmado no schema real: `RatingRead.rated_user: PublicProfileRead` (D-B), `RatingRead.match: MatchRef` e `ReportRead.match: MatchRef | null` (D-C) — tudo batendo com o que `progress.md`/`queue.md` já descreviam como implementado.
+- `../squadup-app/.status/backend-contract.md` (repositório do front, na verdade chamado `squadup-app`, não `../front`) atualizado com uma nota de topo confirmando que D-B, D-C e D-D estão aplicadas e validadas contra o `/openapi.json` real — as seções antigas (2.1, 2.4–2.6) ficam como histórico da comparação original, sem necessidade de reescrever o documento inteiro.
+- **Nota de ambiente:** o caminho `../front` citado em `roadmap.md`/`vision.md` não existe neste ambiente de trabalho — o repositório do front está em `c:\Users\Public\workspace-personal\squadup-app`, não `..\front`. Vale ajustar essas referências relativas se o documento for revisado novamente, para não confundir sessões futuras.
