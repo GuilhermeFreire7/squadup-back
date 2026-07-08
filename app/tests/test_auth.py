@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import timedelta
 
 import jwt
 import pytest
@@ -8,9 +9,11 @@ from sqlmodel.pool import StaticPool
 
 from app.core.config import get_settings
 from app.core.database import get_session
-from app.core.security import ALGORITHM, create_access_token
+from app.core.security import ALGORITHM, create_access_token, hash_refresh_token, utc_now_naive
 from app.main import app
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.services.auth_service import purge_expired_refresh_tokens
 
 VALID_PAYLOAD = {
     "name": "Ana Souza",
@@ -223,3 +226,52 @@ def test_refresh_rejects_when_user_no_longer_exists(
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def _make_user(session: Session) -> User:
+    user = User(
+        name="Ana Souza",
+        email="ana.souza@example.com",
+        hashed_password="hashed",
+        age=28,
+        location="São Paulo, SP",
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def test_purge_removes_expired_and_revoked_tokens(session: Session) -> None:
+    user = _make_user(session)
+    expired = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token("expired-token"),
+        expires_at=utc_now_naive() - timedelta(days=1),
+    )
+    revoked = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token("revoked-token"),
+        expires_at=utc_now_naive() + timedelta(days=30),
+        revoked=True,
+    )
+    valid = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token("valid-token"),
+        expires_at=utc_now_naive() + timedelta(days=30),
+    )
+    session.add_all([expired, revoked, valid])
+    session.commit()
+
+    removed = purge_expired_refresh_tokens(session)
+
+    assert removed == 2
+    remaining = session.exec(select(RefreshToken)).all()
+    assert len(remaining) == 1
+    assert remaining[0].token_hash == hash_refresh_token("valid-token")
+
+
+def test_purge_is_noop_when_no_stale_tokens(session: Session) -> None:
+    removed = purge_expired_refresh_tokens(session)
+
+    assert removed == 0

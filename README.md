@@ -61,6 +61,10 @@ A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega
 
 O `access_token` tem vida curta (`access_token_expire_minutes`, padrão 24h); o `refresh_token` é um valor aleatório opaco (`secrets.token_urlsafe`), armazenado apenas como hash SHA-256 na tabela `refresh_tokens` (`token_hash`), com vida longa (`refresh_token_expire_days`, padrão 30 dias) e rotação a cada uso — o token anterior é sempre marcado como `revoked` ao ser trocado por um novo par, então reutilizar um refresh token já trocado ou revogado retorna `401 INVALID_REFRESH_TOKEN`.
 
+Linhas expiradas ou revogadas de `refresh_tokens` são removidas automaticamente a cada
+inicialização da API (`purge_expired_refresh_tokens`, chamado no `lifespan` de `app/main.py`) —
+evita que a tabela cresça indefinidamente sem exigir infraestrutura de scheduler dedicada.
+
 ## Perfil de usuário
 
 - `GET /users/me` — perfil completo do usuário autenticado (`Authorization: Bearer <token>`), incluindo `average_rating` e `matches_played`.
