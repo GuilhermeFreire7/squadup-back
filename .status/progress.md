@@ -258,3 +258,21 @@ O `/docs` gerado automaticamente só mostrava as respostas de sucesso (200/201/2
 - Todos os endpoints com `HTTPException` documentada em algum service (auth, users, matches, messages, ratings, reports — 19 rotas no total, exceto as que só validam via Pydantic, cobertas pelo `422` automático) ganharam `responses=error_responses(...)`, mapeado 1:1 com o `raise HTTPException` correspondente no service.
 
 **Resultado alcançado:** `GET /openapi.json` responde `200` com 19 paths; inspecionado manualmente o schema de `POST /matches/{id}/join` para confirmar que os três `SHORT_CODE`s de erro 400 aparecem como exemplos distintos sob o mesmo status; `uvicorn` local com `GET /docs` respondendo `200`. `pytest` (105 passed, 99.07% cobertura — `error_responses()` roda no import dos routers, então já fica coberto pelos testes existentes sem precisar de teste novo), `ruff check`, `black --check` e `mypy app` (strict) todos verdes.
+
+### Ambiente local validado (sessão 20, pré-requisito prático da Fase 12)
+
+`.env` criado a partir de `.env.example` com `SECRET_KEY` gerada via `secrets.token_urlsafe(48)` (arquivo não versionado, só local) — `DATABASE_URL` mantido `sqlite:///./squadup.db`. Dependências da `venv` já estavam satisfeitas (`pip install -r requirements.txt` sem reinstalação). `alembic upgrade head` confirmado em `b4fcc804c2cd (head)`, sem migration pendente. Seed (`python -m app.seed`) populou 7 usuários (incl. sistema), 13 partidas, mensagens, avaliações e denúncias. `uvicorn app.main:app` local validado: `GET /health` → 200 `{"status":"ok","environment":"development"}`, `GET /docs` → 200.
+
+## Fase 12 — Refinamentos de contrato para integração com o front (em andamento)
+
+Ordem de execução (ver `roadmap.md` §18, tabela de decisões D-B/D-C/D-D):
+
+1. [x] **D-B** — `RatingRead.rated_user_id` (string solta) substituído por `RatingRead.rated_user: PublicProfileRead`, mesmo padrão de expansão de relacionamento já usado em `MessageRead.sender` (Fase 8) e `ParticipantRead.user` (Fase 5). `app/services/rating_service.py::build_rating_read` passou a chamar `build_public_profile(session, rating.rated_user)` em vez de expor `rating.rated_user_id` diretamente.
+2. [ ] **D-C** — pendente decisão com o front sobre incluir `MatchRef` leve (`id, title, sport, date`) em `RatingRead.match`/`ReportRead.match`.
+3. [ ] **D-D** — pendente decisão sobre emitir `Message(type=system)` automaticamente ao criar partida.
+
+**Decisão tomada:** o campo interno do model `Rating.rated_user_id` (coluna real, FK) **não mudou** — só o schema de resposta da API (`RatingRead`) passou a expandir o relacionamento. Reforça a separação já estabelecida nas fases anteriores entre modelo de persistência e contrato de API exposto.
+
+**Resultado alcançado até agora (D-B):** `pytest` (105 passed, 99.07% cobertura — sem mudança, `test_ratings.py` já cobria o campo alterado), `ruff check`, `black --check` e `mypy app` (strict) todos verdes. Validado manualmente com `uvicorn` local: `/openapi.json` confirma `RatingRead.properties` com `rated_user` (não mais `rated_user_id`); `GET /users/user-1/ratings` contra o banco populado pelo seed retornou `rated_user` totalmente expandido (`id`, `name`, `average_rating`, `matches_played`, etc.).
+
+**Branch:** `feature/fase-12-contrato`, cortada de `dev`.

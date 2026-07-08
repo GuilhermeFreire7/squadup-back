@@ -4,33 +4,12 @@
 
 ## Em andamento
 
-_Fase 11 (Hardening e integração final) parcialmente concluída: `feature/fase-11-hardening` foi mergeada em `dev` via PR #27 (commit `a794760`) — refresh token com rotação e `POST /matches/{id}/close` estão em `dev`. Os dois commits seguintes (`77da987`, `b12d0d4`) foram só correção de falso positivo do gitleaks nos docs de `.status/`, sem código novo. Itens restantes da Fase 11 (cobertura de testes, revisão de OpenAPI, CORS/variáveis de produção, hospedagem, integração com o front) ainda não iniciados — ver "Próxima tarefa" abaixo._
-
-## Ambiente local (pré-requisito prático, sessão 19)
-
-> Antes de implementar qualquer item da Fase 12 (`roadmap.md` §18), é preciso ter o servidor
-> rodando local para validar as mudanças — não dá pra testar D-B/D-C/D-D só lendo código.
-
-- [ ] `cp .env.example .env` e preencher `SECRET_KEY` com um valor real (o default
-  `"change-me-in-.env"` em `app/core/config.py` é só placeholder — `DATABASE_URL` pode
-  continuar `sqlite:///./squadup.db`, é a escolha já fechada para dev);
-- [ ] criar a venv e `pip install -r requirements.txt`;
-- [ ] `alembic upgrade head`;
-- [ ] rodar o seed (`app/seed.py`) para ter dados espelhando os mocks do front;
-- [ ] `uvicorn app.main:app --reload` e confirmar `GET /health` + `GET /docs` respondendo.
+_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes (99.07%) e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Itens de infraestrutura que sobraram (CORS/produção, hospedagem) migraram para a tabela da Fase 12 abaixo, já que ambas as fases fecham juntas antes da integração com o front. Fase 12 (Refinamentos de contrato) iniciada nesta sessão (20): D-B concluído (ver `progress.md`). Ambiente local (`.env`, venv, migrations, seed, `uvicorn`) validado nesta sessão — ver `progress.md`, "Ambiente local validado (sessão 20)"._
 
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
-
-## Próxima tarefa — Fase 11: Hardening e integração final (continuação)
-
-- [x] Cobertura de testes automatizados para os fluxos principais de cada fase anterior — lacunas fechadas nesta sessão (branch `feature/fase-11-cobertura-e-producao`, ainda não commitada): 105 testes, 99.07% de cobertura (de 96/97.89%). Único gap remanescente é `app/seed.py::main()`/`if __name__ == "__main__"` (linhas 687-694, 698) — script de CLI de seed que abre a conexão real com `squadup.db`, não um fluxo servido pela API; deixado sem teste de propósito.
-- [x] Revisão da documentação OpenAPI (`/docs`) como contrato oficial para o front — feita nesta sessão, mesma branch: novo `app/schemas/errors.py` (`ErrorResponse`/`error_responses()`) documenta em `responses=` de cada rota todos os `SHORT_CODE` de erro que o serviço pode retornar (antes só o 200/422 padrão do FastAPI apareciam no Swagger). Ver seção "Documentação OpenAPI" em `progress.md` para o detalhamento.
-- Configuração de CORS e variáveis de ambiente para produção (`app/core/config.py::cors_origins` hoje só lista origins de dev do Expo — nenhum trabalho de produção feito ainda; os commits `77da987`/`b12d0d4` foram apenas correção de falso positivo do gitleaks em texto de `.status/`, não configuração real);
-- Decisão de hospedagem de deploy (Railway/Render/Fly.io — ainda sem escolha, ver "Bloqueios");
-- No front: substituir cada Context mockado por hooks de React Query, um de cada vez.
 
 ## Dívidas técnicas conhecidas
 
@@ -78,7 +57,7 @@ _Fase 11 (Hardening e integração final) parcialmente concluída: `feature/fase
 
 | # | Tarefa | Decisão | Status |
 |---|--------|---------|--------|
-| 1 | Expandir `rated_user: PublicProfileRead` em `RatingRead` (`app/schemas/rating.py`), mesmo padrão de `MessageRead.sender` | D-B | ⚪ |
+| 1 | Expandir `rated_user: PublicProfileRead` em `RatingRead` (`app/schemas/rating.py`), mesmo padrão de `MessageRead.sender` | D-B | 🟢 concluído — ver `progress.md` §"Fase 12" |
 | 2 | Decidir com o front se `RatingRead`/`ReportRead` ganham `MatchRef` (`id, title, sport, date`) em vez de só `match_id` | D-C | ⚪ |
 | 3 | Se D-C aprovado: criar schema `MatchRef` e incluir em `RatingRead.match`/`ReportRead.match` | D-C | ⚪ |
 | 4 | Decidir se o backend emite `Message(type=system)` automaticamente ao criar partida, ou se o front descarta essa simulação | D-D | ⚪ |
@@ -99,13 +78,10 @@ _Fase 11 (Hardening e integração final) parcialmente concluída: `feature/fase
 
 ## Checkpointer — retomar aqui na próxima sessão
 
-**Não há bug em aberto.** Cobertura de testes e documentação OpenAPI concluídas e validadas nesta sessão, ainda não commitadas.
+**Não há bug em aberto.** Sessão 20 encerrada com D-B commitado. Estado exato para retomar:
 
-- **Branch atual:** `feature/fase-11-cobertura-e-producao` (cortada de `dev`, sem PR aberto ainda) — mudanças em arquivos de teste (`app/tests/test_auth.py`, `app/tests/test_matches.py`, novo `app/tests/test_database.py`), um schema novo (`app/schemas/errors.py`) e os 5 routers (`app/routers/{auth,users,matches,messages,ratings,reports}.py` ganharam `responses=` documentando erros); mais esta `queue.md`. Nenhuma mudança de comportamento de runtime — só metadados de OpenAPI e testes.
-- **O que está pronto e verde:**
-  - Cobertura: 105 testes pytest (eram 96), 99.07% cobertura (era 97.89%). Fechadas as lacunas de `app/core/database.py` (`get_session`), `app/core/dependencies.py` (token sem `sub`, usuário deletado), `app/services/auth_service.py` (refresh token cujo usuário foi removido) e `app/services/match_service.py` (filtro por data, filtro por nível, `leave` em partida já encerrada, reingresso após sair, aprovação com partida já cheia).
-  - OpenAPI: `app/schemas/errors.py` define `ErrorResponse` (schema Pydantic do formato `{"detail": {"code", "message"}}` já usado em todo `HTTPException`) e `error_responses(*tuplas)`, que monta o `responses=` do FastAPI agrupando múltiplos `SHORT_CODE`s do mesmo status HTTP como exemplos nomeados. Toda rota que pode retornar erro (exceto validação 422, já documentada pelo FastAPI) ganhou esse `responses=`, mapeado 1:1 com os `HTTPException` de cada service. Validado manualmente: `uvicorn` local, `GET /openapi.json` (200, 19 paths) e `GET /docs` (200) responderam corretamente; inspecionado `/openapi.json` de `POST /matches/{id}/join` para confirmar que os três `SHORT_CODE`s de erro 400 (`MATCH_NOT_JOINABLE`, `ALREADY_PARTICIPATING`, `MATCH_FULL`) aparecem como exemplos distintos no mesmo status.
-  - `ruff`, `black`, `mypy app` (strict) e `pytest` todos verdes.
-- **Gap remanescente, deixado de propósito:** `app/seed.py::main()` (linhas 687-694, 698) — só o entrypoint de CLI do script de seed, que abre conexão real com `squadup.db`; não é um fluxo servido pela API, testar isso exigiria side-effect em arquivo real sem ganho funcional.
-- **Próximo passo concreto:** (1) commitar este trabalho (testes + OpenAPI); (2) implementar CORS/variáveis de ambiente de produção de fato (hoje `cors_origins` em `app/core/config.py` só cobre origins de dev do Expo); (3) decidir hospedagem (Railway/Render/Fly.io); (4) só então abrir PR de `feature/fase-11-cobertura-e-producao` (ou dividir em branches menores) para `dev`.
+- **Branch atual:** `feature/fase-12-contrato` (cortada de `dev`), commit `712dba7` ("feat: expande rated_user em RatingRead (Fase 12, D-B)") — working tree limpo, nada pendente de commit. Sem PR aberto ainda.
+- **O que está feito e verde nesta branch:** D-B completo — `RatingRead.rated_user_id` (str solta, `app/schemas/rating.py:20`) substituído por `RatingRead.rated_user: PublicProfileRead`; `app/services/rating_service.py::build_rating_read` (linha ~54) monta esse campo via `build_public_profile(session, rating.rated_user)`, mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`. Campo interno do model `Rating.rated_user_id` (`app/models/rating.py:16`, FK real) não mudou — só o schema de resposta da API. Teste `app/tests/test_ratings.py::test_confirmed_participant_can_rate_another_after_match_closed` (linha 137) atualizado para checar `body["rated_user"]["id"]`. Gate completo verde: `pytest` (105 testes, 99.07% cobertura), `ruff check`, `black --check`, `mypy app` (strict), `alembic check` (sem divergência). Validado manualmente com `uvicorn` local: `/openapi.json` mostra `RatingRead` com `rated_user` (não mais `rated_user_id`); `GET /users/user-1/ratings` contra o `squadup.db` do seed retornou o objeto expandido de verdade.
+- **Ambiente local:** validado nesta sessão — `.env` criado (não versionado), dependências da venv já satisfeitas, `alembic` em dia (`b4fcc804c2cd`), seed populado, `uvicorn`/`/health`/`/docs`/`/openapi.json` respondendo. Nenhum servidor de teste ficou rodando ao final (porta 8000 livre).
+- **Próximo passo concreto (não iniciado):** D-C — decidir com o front se `RatingRead.match`/`ReportRead.match` ganham um `MatchRef` leve (`id, title, sport, date`) em vez de só `match_id` (linha 2 da tabela da Fase 12 abaixo, `roadmap.md` §18). É uma decisão de produto/contrato a alinhar antes de codar — não é um bug nem exige investigação de código adicional. Se aprovado, a implementação é: criar `MatchRef` em `app/schemas/match.py` (ou novo arquivo), incluir em `RatingRead`/`ReportRead`, e povoar em `rating_service.py`/`report_service.py` a partir do `Match` já carregado. Depois de D-C, resta D-D (mensagem de sistema automática ao criar partida) e os itens de infraestrutura (CORS produção, hospedagem, purge de `refresh_tokens`, logout de todos os dispositivos) — todos ⚪ na tabela abaixo.
 - **Nada bloqueado.**

@@ -17,7 +17,7 @@ class RatingCreate(BaseModel):
 class RatingRead(BaseModel):
     id: str = Field(examples=["rating-1"])
     match_id: str = Field(examples=["match-1"])
-    rated_user_id: str = Field(examples=["3f1b1c2e-4a5b-4c6d-8e9f-0a1b2c3d4e5f"])
+    rated_user: PublicProfileRead
     rater: PublicProfileRead
     punctuality: int = Field(examples=[5])
     respect: int = Field(examples=[5])
