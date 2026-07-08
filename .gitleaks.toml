@@ -7,6 +7,11 @@ useDefault = true
 description = "Placeholders that look like secrets but are not"
 regexes = [
   '''change-me-in-\.env''',
+  # Falso positivo do generic-api-key: "CORS/ambiente" (mistura de
+  # maiusculas/minusculas + barra) tem entropia suficiente para ser
+  # confundido com uma chave de API. Sem valor secreto real, so texto
+  # de status em .status/*.md (ver commit 27ea7a2 no historico).
+  '''CORS/ambiente''',
 ]
 paths = [
   '''\.env\.example$''',
