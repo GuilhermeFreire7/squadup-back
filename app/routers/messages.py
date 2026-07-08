@@ -4,10 +4,20 @@ from sqlmodel import Session
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.schemas.errors import AUTH_ERRORS, error_responses
 from app.schemas.message import MessageCreate, MessageRead
 from app.services.message_service import create_message, list_messages
 
 router = APIRouter(prefix="/matches/{match_id}/messages", tags=["messages"])
+
+_CHAT_ACCESS_ERRORS = (
+    (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+    (
+        403,
+        "NOT_MATCH_PARTICIPANT",
+        "Apenas o organizador ou participantes confirmados podem acessar o chat.",
+    ),
+)
 
 
 @router.get(
@@ -16,6 +26,7 @@ router = APIRouter(prefix="/matches/{match_id}/messages", tags=["messages"])
     summary="Histórico de mensagens da partida",
     description="Lista o histórico de mensagens da partida, em ordem cronológica, paginado. "
     "Acessível apenas ao organizador ou a participantes confirmados.",
+    responses=error_responses(*AUTH_ERRORS, *_CHAT_ACCESS_ERRORS),
 )
 def read_messages(
     match_id: str,
@@ -34,6 +45,7 @@ def read_messages(
     summary="Enviar mensagem na partida",
     description="Envia uma nova mensagem no chat da partida, com timestamp gerado pelo "
     "servidor. Acessível apenas ao organizador ou a participantes confirmados.",
+    responses=error_responses(*AUTH_ERRORS, *_CHAT_ACCESS_ERRORS),
 )
 def send_message(
     match_id: str,

@@ -149,6 +149,34 @@ def test_list_matches_filters_by_sport(db_client: tuple[TestClient, Session]) ->
     assert body[0]["id"] == "match-2"
 
 
+def test_list_matches_filters_by_date(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "match-1", organizer, match_date=date(2026, 5, 25))
+    _make_match(session, "match-2", organizer, match_date=date(2026, 6, 1))
+
+    response = client.get("/matches", params={"date": "2026-05-25"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["id"] == "match-1"
+
+
+def test_list_matches_filters_by_level(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "match-1", organizer, level=ExperienceLevel.BEGINNER)
+    _make_match(session, "match-2", organizer, level=ExperienceLevel.ADVANCED)
+
+    response = client.get("/matches", params={"level": "advanced"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["id"] == "match-2"
+
+
 def test_list_matches_filters_by_location(db_client: tuple[TestClient, Session]) -> None:
     client, session = db_client
     organizer = _make_user(session, "u1", "Alice")
@@ -473,6 +501,41 @@ def test_leave_match_reopens_full_match(db_client: tuple[TestClient, Session]) -
     assert response.json()["status"] == "open"
 
 
+def test_leave_match_on_closed_match_keeps_status_closed(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    token = _register_and_login(client, email="player@example.com")
+    _join(client, match.id, token)
+    match.status = MatchStatus.CLOSED
+    session.add(match)
+    session.commit()
+
+    response = _leave(client, match.id, token)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "closed"
+
+
+def test_join_match_after_leaving_reactivates_participant(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    token = _register_and_login(client, email="player@example.com")
+    _join(client, match.id, token)
+    _leave(client, match.id, token)
+
+    response = _join(client, match.id, token)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["confirmed_count"] == 1
+
+
 def test_leave_match_rejects_when_not_participating(
     db_client: tuple[TestClient, Session],
 ) -> None:
@@ -622,6 +685,46 @@ def test_close_match_rejects_missing_token(db_client: tuple[TestClient, Session]
     response = client.post(f"/matches/{match.id}/close")
 
     assert response.status_code == 401
+
+
+def test_approve_participant_rejects_when_match_already_full(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=1)
+    match.requires_approval = True
+    session.add(match)
+    session.commit()
+
+    first_token = _register_and_login(client, email="first@example.com")
+    first_id = client.get("/users/me", headers={"Authorization": f"Bearer {first_token}"}).json()[
+        "id"
+    ]
+    _join(client, match.id, first_token)
+    client.post(
+        f"/matches/{match.id}/participants/{first_id}/approve",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    second_token = _register_and_login(client, email="second@example.com")
+    second_id = client.get("/users/me", headers={"Authorization": f"Bearer {second_token}"}).json()[
+        "id"
+    ]
+    _join(client, match.id, second_token)
+
+    response = client.post(
+        f"/matches/{match.id}/participants/{second_id}/approve",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "MATCH_FULL"
 
 
 def test_approve_participant_rejects_when_no_pending_request(
