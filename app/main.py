@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import create_db_and_tables
-from app.routers import auth, health, matches, messages, ratings, users
+from app.routers import auth, health, matches, messages, ratings, reports, users
 
 settings = get_settings()
 
@@ -38,3 +38,4 @@ app.include_router(users.router)
 app.include_router(matches.router)
 app.include_router(messages.router)
 app.include_router(ratings.router)
+app.include_router(reports.router)
