@@ -206,3 +206,11 @@ Ordem de execução (ver `roadmap.md` §12):
 **Resultado alcançado:** `pytest` (85 passed, 97.81% cobertura), `ruff check`, `black --check` e `mypy app` (strict) todos verdes; fluxo validado manualmente com `uvicorn` local (usuário comum denuncia outro com sucesso; usuário comum tentando `GET`/`PATCH /reports` recebe `403 ADMIN_ONLY`; admin lista a denúncia e resolve com `action=warn`, retornando `status=warned`; segunda tentativa de resolver a mesma denúncia retorna `400 REPORT_ALREADY_RESOLVED`; autodenúncia retorna `400 CANNOT_REPORT_SELF`).
 
 **Branch:** `feature/fase-10-denuncia-moderacao`, cortada de `dev`.
+
+## Segurança — Migração `python-jose` → `PyJWT` (nesta mesma branch)
+
+`pip-audit` no CI do PR da Fase 10 apontou `ecdsa==0.19.2` (`PYSEC-2026-1325`, sem versão corrigida disponível) como dependência transitiva obrigatória de `python-jose` — mesmo usando a extra `[cryptography]`, o `python-jose` sempre instala `ecdsa`/`pyasn1`/`rsa` como dependências core, independentemente do algoritmo usado. Como `app/core/security.py` usa exclusivamente `HS256` (simétrico, sem curva elíptica), `ecdsa` era uma dependência 100% supérflua e sem correção disponível.
+
+**Correção:** substituído `python-jose[cryptography]` por `PyJWT` (`requirements.txt`), que não depende de `ecdsa`. `app/core/security.py` trocou `from jose import JWTError, jwt` por `import jwt` e `except JWTError` por `except jwt.PyJWTError` — API de `encode`/`decode` compatível, nenhuma mudança de comportamento. Removido também `types-python-jose` de `requirements.txt` (`PyJWT` já publica seus próprios tipos).
+
+**Resultado:** `pip-audit -r requirements.txt` — nenhuma vulnerabilidade conhecida; `pytest` (85 passed, 97.81% cobertura), `ruff check`, `black --check`, `mypy app` (strict) e `bandit` todos verdes.

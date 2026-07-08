@@ -16,7 +16,7 @@ Contexto completo do produto e do roadmap técnico em [`.status/`](.status/):
 - **ORM / Schemas:** [SQLModel](https://sqlmodel.tiangolo.com/) (SQLAlchemy + Pydantic v2)
 - **Banco de dados:** SQLite em desenvolvimento, PostgreSQL previsto para produção
 - **Migrations:** [Alembic](https://alembic.sqlalchemy.org/)
-- **Autenticação:** JWT (`python-jose`) + hashing de senha com `passlib[bcrypt]`
+- **Autenticação:** JWT (`PyJWT`) + hashing de senha com `passlib[bcrypt]`
 - **Testes:** `pytest` + `pytest-cov` + `httpx`/`TestClient`
 - **Qualidade:** `ruff` (lint), `black` (format), `mypy` (type-check estrito)
 - **Segurança:** `bandit` (SAST), `pip-audit` (CVEs em dependências), CodeQL e gitleaks no CI
@@ -41,7 +41,7 @@ uvicorn app.main:app --reload
 
 ## Autenticação
 
-JWT (`python-jose`, HS256) com senha hasheada via `passlib[bcrypt]`:
+JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 
 - `POST /auth/register` — cadastra um usuário (`name`, `email`, `password`, `age`, `location`, `bio?`, `favorite_sports`); retorna `409 EMAIL_ALREADY_REGISTERED` se o e-mail já existir.
 - `POST /auth/login` — valida e-mail/senha e retorna `{ access_token, token_type }`; `401 INVALID_CREDENTIALS` em caso de falha.
