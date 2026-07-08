@@ -4,7 +4,7 @@
 
 ## Em andamento
 
-_Fase 9 (Avaliação pós-partida) implementada e validada localmente (72 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn cobrindo bloqueio antes do fechamento, criação, dedupe, autoavaliação bloqueada e `average_rating` refletindo a nota real) na branch `feature/fase-9-avaliacao`; aguardando revisão/merge em `dev` antes de iniciar a Fase 10 (Denúncia e moderação). Ver `progress.md` para o detalhamento completo._
+_Fase 10 (Denúncia e moderação) implementada e validada localmente (85 testes pytest, ruff, black, mypy verdes + smoke test manual via uvicorn cobrindo criação de denúncia, `403 ADMIN_ONLY` para não-admin, listagem e resolução por admin, `400 REPORT_ALREADY_RESOLVED` e `400 CANNOT_REPORT_SELF`) na branch `feature/fase-10-denuncia-moderacao`; aguardando revisão/merge em `dev` antes de iniciar a Fase 11 (Hardening e integração final). Ver `progress.md` para o detalhamento completo._
 
 ## Bloqueios
 
@@ -12,19 +12,14 @@ _Fase 9 (Avaliação pós-partida) implementada e validada localmente (72 testes
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 - Não há endpoint para o organizador encerrar uma partida (`status → closed`) — a Fase 9 depende disso para o fluxo de avaliação, mas nenhuma fase do roadmap previu esse endpoint explicitamente. Hoje o fechamento só acontece manualmente (ex.: seed, migração de dados, ou uma futura automação por data/hora da partida). Avaliar na Fase 10/11 se é preciso um `PATCH /matches/{id}` ou uma rotina que feche partidas cuja `date`/`time` já passou.
 
-## Próxima tarefa — Fase 10: Denúncia e moderação
+## Próxima tarefa — Fase 11: Hardening e integração final
 
-- `POST /reports`;
-- `GET /reports` (lista para moderação — requer role de admin);
-- `PATCH /reports/{id}` (ações: `archive`, `warn`, `ban`);
-- RBAC mínimo via campo `role` em `User` (`user`/`admin`, já existente desde a Fase 2) — `403` para não-admin tentando acessar `GET/PATCH /reports`.
-- Precedente de acesso a seguir (lição das Fases 8/9 abaixo): usar o mesmo padrão de dependency reutilizável para checar `role == admin`, análogo a `get_current_user`.
-
-## Depois da Fase 10 (backlog, não iniciar ainda)
-
-Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a anterior tiver um endpoint navegável de ponta a ponta:
-
-- Fase 11 — Hardening e integração final com o front
+- Cobertura de testes automatizados para os fluxos principais de cada fase anterior (já em bom estado: 85 testes, 97.81% de cobertura — revisar lacunas específicas antes de considerar suficiente);
+- Revisão da documentação OpenAPI (`/docs`) como contrato oficial para o front;
+- Configuração de CORS/ambiente para produção;
+- Decisão de hospedagem de deploy (Railway/Render/Fly.io — ainda sem escolha, ver "Bloqueios");
+- No front: substituir cada Context mockado por hooks de React Query, um de cada vez.
+- Decidir junto: refresh token (adiado desde a Fase 3) e endpoint/rotina de fechamento de partida (`status → closed`, bloqueio pendente desde a Fase 9) — ambos ficaram para esta fase por não terem endpoint próprio nas fases anteriores.
 
 ## Dívidas técnicas conhecidas
 
@@ -45,6 +40,13 @@ Seguindo a ordem do `roadmap.md` §14 — cada fase só começa depois que a ant
 - **Nem toda ausência de participante confirmado é uma questão de permissão do usuário autenticado** — ao validar `POST /matches/{id}/ratings/{userId}`, o avaliador (`current_user`) sem `Participant.status == confirmed` retorna `403 NOT_MATCH_PARTICIPANT` (mesmo código/semântica do chat na Fase 8: falta de permissão de quem chama), mas o avaliado sem `confirmed` retorna `400 RATED_USER_NOT_PARTICIPANT` (o alvo da ação é que é inválido, não uma questão de acesso). Distinguir esses dois casos ao desenhar validações análogas na Fase 10 (ex.: denunciar um usuário que nunca participou da partida referenciada).
 - **`average_rating` continuou 100% derivado sem nenhuma alteração** — `app/services/user_service.py::get_average_rating` já calculava a média a partir da tabela `ratings` desde a Fase 4; a Fase 9 só precisou inserir linhas reais em `ratings` para o valor passar a refletir avaliações verdadeiras. Confirma que nunca introduzir um campo solto (`average_rating`/`matches_played` como coluna) foi a decisão certa — reforça a mesma lição da Fase 7 para o `status` de partida.
 - **Falta um endpoint de fechamento de partida** — a regra de negócio da Fase 9 depende de `match.status == closed`, mas nenhuma fase anterior implementou uma forma de chegar nesse estado além de manipulação direta do banco (seed/migração). Ver "Bloqueios" acima — decidir isso antes ou durante a Fase 10/11, senão o fluxo de avaliação nunca é alcançável via API pura no front.
+
+## Lições da Fase 10 (aplicar ao revisar código futuro)
+
+- **RBAC mínimo via dependency composta, não checagem manual em cada handler** — `get_current_admin` (`app/core/dependencies.py`) reaproveita `get_current_user` via `Depends` e adiciona só a checagem de `role == admin`, em vez de repetir `if current_user.role != UserRole.ADMIN` em cada rota. Usar o mesmo padrão para qualquer RBAC futuro em vez de checagem solta no corpo do handler.
+- **`match_id` opcional em `Report` não exige validação de participação** — diferente da Fase 9 (avaliação exige `Participant.status == confirmed`), a denúncia não tem essa exigência no `vision.md`: `match_id` só é validado quanto à existência (`404 MATCH_NOT_FOUND`), sem checar se denunciante/denunciado participaram da partida. Decisão deliberada para não inventar regra de negócio não pedida — reavaliar só se o front precisar dessa restrição.
+- **Ação de moderação sem efeito colateral real na conta** — `action: ban` só muda `Report.status` para `banned`; não há bloqueio de login nem campo de banimento em `User`. Escopo do `roadmap.md` §12/§16 é replicar as 3 ações do protótipo (arquivar/advertir/banir como rótulo de status), não um sistema de enforcement — não confundir com uma feature de moderação real ao estender isso no futuro.
+- **Transição de estado única por denúncia** — `PATCH /reports/{id}` só aceita ação sobre denúncia `status == pending` (`400 REPORT_ALREADY_RESOLVED` caso contrário), decisão nova não coberta pelo protótipo mockado. Vale como precedente para qualquer recurso futuro que tenha estado "resolvido" sem caminho de volta.
 
 ## Notas
 

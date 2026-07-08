@@ -16,7 +16,7 @@ Contexto completo do produto e do roadmap técnico em [`.status/`](.status/):
 - **ORM / Schemas:** [SQLModel](https://sqlmodel.tiangolo.com/) (SQLAlchemy + Pydantic v2)
 - **Banco de dados:** SQLite em desenvolvimento, PostgreSQL previsto para produção
 - **Migrations:** [Alembic](https://alembic.sqlalchemy.org/)
-- **Autenticação:** JWT (`python-jose`) + hashing de senha com `passlib[bcrypt]`
+- **Autenticação:** JWT (`PyJWT`) + hashing de senha com `passlib[bcrypt]`
 - **Testes:** `pytest` + `pytest-cov` + `httpx`/`TestClient`
 - **Qualidade:** `ruff` (lint), `black` (format), `mypy` (type-check estrito)
 - **Segurança:** `bandit` (SAST), `pip-audit` (CVEs em dependências), CodeQL e gitleaks no CI
@@ -41,7 +41,7 @@ uvicorn app.main:app --reload
 
 ## Autenticação
 
-JWT (`python-jose`, HS256) com senha hasheada via `passlib[bcrypt]`:
+JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 
 - `POST /auth/register` — cadastra um usuário (`name`, `email`, `password`, `age`, `location`, `bio?`, `favorite_sports`); retorna `409 EMAIL_ALREADY_REGISTERED` se o e-mail já existir.
 - `POST /auth/login` — valida e-mail/senha e retorna `{ access_token, token_type }`; `401 INVALID_CREDENTIALS` em caso de falha.
@@ -88,6 +88,14 @@ Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao or
 `average_rating` do perfil (`GET /users/{id}`, `GET /users/me`) é sempre recalculado a partir das linhas de `ratings` — nenhuma avaliação é somada manualmente a um total solto.
 
 > Nenhum endpoint desta fase encerra uma partida (`status → closed`); hoje isso só acontece via seed ou manipulação direta do banco. Ver `.status/queue.md` para o acompanhamento dessa lacuna.
+
+## Denúncia e moderação
+
+- `POST /reports` — usuário autenticado denuncia outro usuário (`reported_user_id`, `reason`, `description`, `match_id` opcional). `400 CANNOT_REPORT_SELF` se tentar denunciar a si mesmo; `404 USER_NOT_FOUND`/`404 MATCH_NOT_FOUND` se o usuário denunciado ou a partida referenciada não existirem.
+- `GET /reports` — lista todas as denúncias, mais recentes primeiro. Requer `role == admin`; `403 ADMIN_ONLY` caso contrário.
+- `PATCH /reports/{id}` — aplica uma ação de moderação (`action`: `archive`, `warn` ou `ban`), atualizando `status` da denúncia (`archived`, `warned`, `banned`). Requer `role == admin`; `400 REPORT_ALREADY_RESOLVED` se a denúncia não estiver mais `pending`; `404 REPORT_NOT_FOUND` se não existir.
+
+RBAC mínimo via campo `role` (`user`/`admin`) em `User`, checado pela dependency `app.core.dependencies.get_current_admin` (reutiliza `get_current_user` e adiciona a verificação de papel). Nenhuma ação de moderação tem efeito colateral sobre a conta do usuário denunciado (ex.: `ban` não bloqueia login) — escopo desta fase é replicar as 3 ações já previstas no protótipo do front, não um sistema de enforcement real.
 
 ## Testes e qualidade
 
