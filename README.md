@@ -44,10 +44,14 @@ uvicorn app.main:app --reload
 JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 
 - `POST /auth/register` — cadastra um usuário (`name`, `email`, `password`, `age`, `location`, `bio?`, `favorite_sports`); retorna `409 EMAIL_ALREADY_REGISTERED` se o e-mail já existir.
-- `POST /auth/login` — valida e-mail/senha e retorna `{ access_token, token_type }`; `401 INVALID_CREDENTIALS` em caso de falha.
+- `POST /auth/login` — valida e-mail/senha e retorna `{ access_token, refresh_token, token_type }`; `401 INVALID_CREDENTIALS` em caso de falha.
 - `GET /auth/me` — retorna o usuário autenticado a partir do header `Authorization: Bearer <token>`.
+- `POST /auth/refresh` — troca um `refresh_token` válido por um novo par `{ access_token, refresh_token }` (rotação: o refresh token usado é revogado); `401 INVALID_REFRESH_TOKEN` se estiver inválido, expirado, revogado ou já utilizado.
+- `POST /auth/logout` — revoga um `refresh_token`, encerrando a sessão correspondente; `204` em caso de sucesso, `401 INVALID_REFRESH_TOKEN` se o token já não for válido.
 
 A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
+
+O `access_token` tem vida curta (`access_token_expire_minutes`, padrão 24h); o `refresh_token` é um valor aleatório opaco (`secrets.token_urlsafe`), armazenado apenas como hash SHA-256 na tabela `refresh_tokens` (`token_hash`), com vida longa (`refresh_token_expire_days`, padrão 30 dias) e rotação a cada uso — o token anterior é sempre marcado como `revoked` ao ser trocado por um novo par, então reutilizar um refresh token já trocado ou revogado retorna `401 INVALID_REFRESH_TOKEN`.
 
 ## Perfil de usuário
 
@@ -70,8 +74,9 @@ A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega
 - `POST /matches/{id}/join` — usuário autenticado solicita participação; cria `Participant` como `confirmed` (partidas sem `requires_approval`) ou `pending` (aguardando aprovação do organizador); `400 MATCH_NOT_JOINABLE` se a partida estiver `closed`/`cancelled`, `400 MATCH_FULL` se não houver vagas e a partida não exigir aprovação, `400 ALREADY_PARTICIPATING` se já houver participação ativa.
 - `POST /matches/{id}/leave` — cancela a participação do usuário autenticado; `400 NOT_PARTICIPATING` se não houver participação ativa.
 - `POST /matches/{id}/participants/{userId}/approve` — organizador confirma uma solicitação `pending`; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `404 PENDING_PARTICIPANT_NOT_FOUND` se não houver solicitação pendente para o usuário, `400 MATCH_FULL` se as vagas já tiverem sido preenchidas.
+- `POST /matches/{id}/close` — organizador encerra a partida manualmente (`status → closed`), pré-requisito para o fluxo de avaliação pós-partida; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `400 MATCH_ALREADY_RESOLVED` se a partida já estiver `closed`/`cancelled`.
 
-O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join/leave/approve a partir da contagem real de `Participant.status == confirmed` — nunca definido manualmente.
+O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join/leave/approve a partir da contagem real de `Participant.status == confirmed` — nunca definido manualmente. `closed` é a única transição manual, disparada exclusivamente pelo organizador via `POST /matches/{id}/close`.
 
 ## Mensagens (chat da partida)
 
@@ -87,7 +92,7 @@ Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao or
 
 `average_rating` do perfil (`GET /users/{id}`, `GET /users/me`) é sempre recalculado a partir das linhas de `ratings` — nenhuma avaliação é somada manualmente a um total solto.
 
-> Nenhum endpoint desta fase encerra uma partida (`status → closed`); hoje isso só acontece via seed ou manipulação direta do banco. Ver `.status/queue.md` para o acompanhamento dessa lacuna.
+Para chegar a `match.status == closed` sem manipular o banco diretamente, use `POST /matches/{id}/close` (ver seção "Participação em partida").
 
 ## Denúncia e moderação
 
@@ -117,7 +122,7 @@ Todas essas checagens (qualidade + segurança) também rodam automaticamente em 
 
 ## Modelo de dados
 
-Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
+Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. `RefreshToken` foi adicionado na Fase 11 (fora do `vision.md` original, que não previa rotação de sessão) para suportar `POST /auth/refresh`/`POST /auth/logout`. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
 
 Regras de negócio que devem ser aplicadas na camada de serviço (não como colunas soltas): vagas/`status` de partida sempre derivados da contagem de `Participant.status == confirmed`; avaliação só válida com `match.status == closed` e ambos usuários `confirmed`.
 
