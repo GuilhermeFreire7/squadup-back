@@ -4,7 +4,7 @@
 
 ## Em andamento
 
-_Fase 11 (Hardening e integração final) em andamento na branch `feature/fase-11-hardening` (a partir de `dev`, ainda não commitada/mergeada). Refresh token com rotação e `POST /matches/{id}/close` já implementados, testados e validados nesta sessão — ver `progress.md` (seção "Fase 11") para o detalhamento completo. Itens restantes listados em "Próxima tarefa" abaixo._
+_Fase 11 (Hardening e integração final) parcialmente concluída: `feature/fase-11-hardening` foi mergeada em `dev` via PR #27 (commit `a794760`) — refresh token com rotação e `POST /matches/{id}/close` estão em `dev`. Os dois commits seguintes (`77da987`, `b12d0d4`) foram só correção de falso positivo do gitleaks nos docs de `.status/`, sem código novo. Itens restantes da Fase 11 (cobertura de testes, revisão de OpenAPI, CORS/variáveis de produção, hospedagem, integração com o front) ainda não iniciados — ver "Próxima tarefa" abaixo._
 
 ## Bloqueios
 
@@ -13,11 +13,10 @@ _Fase 11 (Hardening e integração final) em andamento na branch `feature/fase-1
 
 ## Próxima tarefa — Fase 11: Hardening e integração final (continuação)
 
-- Cobertura de testes automatizados para os fluxos principais de cada fase anterior (já em bom estado: 96 testes, 97.89% de cobertura — revisar lacunas específicas antes de considerar suficiente);
-- Revisão da documentação OpenAPI (`/docs`) como contrato oficial para o front;
-- Configuração de CORS e variáveis de ambiente para produção;
+- [x] Cobertura de testes automatizados para os fluxos principais de cada fase anterior — lacunas fechadas nesta sessão (branch `feature/fase-11-cobertura-e-producao`, ainda não commitada): 105 testes, 99.07% de cobertura (de 96/97.89%). Único gap remanescente é `app/seed.py::main()`/`if __name__ == "__main__"` (linhas 687-694, 698) — script de CLI de seed que abre a conexão real com `squadup.db`, não um fluxo servido pela API; deixado sem teste de propósito.
+- [x] Revisão da documentação OpenAPI (`/docs`) como contrato oficial para o front — feita nesta sessão, mesma branch: novo `app/schemas/errors.py` (`ErrorResponse`/`error_responses()`) documenta em `responses=` de cada rota todos os `SHORT_CODE` de erro que o serviço pode retornar (antes só o 200/422 padrão do FastAPI apareciam no Swagger). Ver seção "Documentação OpenAPI" em `progress.md` para o detalhamento.
+- Configuração de CORS e variáveis de ambiente para produção (`app/core/config.py::cors_origins` hoje só lista origins de dev do Expo — nenhum trabalho de produção feito ainda; os commits `77da987`/`b12d0d4` foram apenas correção de falso positivo do gitleaks em texto de `.status/`, não configuração real);
 - Decisão de hospedagem de deploy (Railway/Render/Fly.io — ainda sem escolha, ver "Bloqueios");
-- Commitar e abrir PR de `feature/fase-11-hardening` para `dev` com o trabalho de refresh token + fechamento de partida já feito (ver "Checkpointer" ao final deste arquivo para o estado exato);
 - No front: substituir cada Context mockado por hooks de React Query, um de cada vez.
 
 ## Dívidas técnicas conhecidas
@@ -66,10 +65,13 @@ _Fase 11 (Hardening e integração final) em andamento na branch `feature/fase-1
 
 ## Checkpointer — retomar aqui na próxima sessão
 
-**Não há bug em aberto.** A sessão terminou em ponto limpo: código implementado, testado, validado manualmente e commitado — só falta continuar o restante da Fase 11.
+**Não há bug em aberto.** Cobertura de testes e documentação OpenAPI concluídas e validadas nesta sessão, ainda não commitadas.
 
-- **Branch atual:** `feature/fase-11-hardening` (cortada de `dev`, ainda não tem PR aberto).
-- **Último commit de código:** `4160a01` — `feat: refresh token com rotacao e encerramento manual de partida (Fase 11)`. Um commit `docs:` de sincronização de fim de sessão vem logo em seguida.
-- **O que está pronto e verde:** `POST /auth/refresh`, `POST /auth/logout` (`app/routers/auth.py` + `app/services/auth_service.py`), `POST /matches/{id}/close` (`app/routers/matches.py` + `app/services/match_service.py::close_match`), tabela `refresh_tokens` (migration `b4fcc804c2cd`). 96 testes pytest, 97.89% cobertura, `ruff`/`black`/`mypy`/`alembic check` verdes, smoke test manual via `uvicorn` ok.
-- **Próximo passo concreto:** nenhum código pendente de correção — o próximo item é começar a trabalhar a lista em "Próxima tarefa — Fase 11: Hardening e integração final (continuação)" acima. Sugestão de ordem: (1) revisar lacunas de cobertura de teste (rodar `pytest --cov-report=term-missing` e olhar `app/services/match_service.py` linhas 62, 66, 107, 152-153, 238 e `app/services/auth_service.py` linha 98, que ainda não têm teste direto); (2) revisar o OpenAPI gerado em `/docs`; (3) decidir CORS/hospedagem de produção; (4) só então abrir o PR de `feature/fase-11-hardening` para `dev`.
-- **Nada bloqueado:** as duas decisões de produto que exigiam confirmação do usuário (refresh token, fechamento de partida) já foram tomadas e implementadas nesta sessão — não é preciso perguntar de novo.
+- **Branch atual:** `feature/fase-11-cobertura-e-producao` (cortada de `dev`, sem PR aberto ainda) — mudanças em arquivos de teste (`app/tests/test_auth.py`, `app/tests/test_matches.py`, novo `app/tests/test_database.py`), um schema novo (`app/schemas/errors.py`) e os 5 routers (`app/routers/{auth,users,matches,messages,ratings,reports}.py` ganharam `responses=` documentando erros); mais esta `queue.md`. Nenhuma mudança de comportamento de runtime — só metadados de OpenAPI e testes.
+- **O que está pronto e verde:**
+  - Cobertura: 105 testes pytest (eram 96), 99.07% cobertura (era 97.89%). Fechadas as lacunas de `app/core/database.py` (`get_session`), `app/core/dependencies.py` (token sem `sub`, usuário deletado), `app/services/auth_service.py` (refresh token cujo usuário foi removido) e `app/services/match_service.py` (filtro por data, filtro por nível, `leave` em partida já encerrada, reingresso após sair, aprovação com partida já cheia).
+  - OpenAPI: `app/schemas/errors.py` define `ErrorResponse` (schema Pydantic do formato `{"detail": {"code", "message"}}` já usado em todo `HTTPException`) e `error_responses(*tuplas)`, que monta o `responses=` do FastAPI agrupando múltiplos `SHORT_CODE`s do mesmo status HTTP como exemplos nomeados. Toda rota que pode retornar erro (exceto validação 422, já documentada pelo FastAPI) ganhou esse `responses=`, mapeado 1:1 com os `HTTPException` de cada service. Validado manualmente: `uvicorn` local, `GET /openapi.json` (200, 19 paths) e `GET /docs` (200) responderam corretamente; inspecionado `/openapi.json` de `POST /matches/{id}/join` para confirmar que os três `SHORT_CODE`s de erro 400 (`MATCH_NOT_JOINABLE`, `ALREADY_PARTICIPATING`, `MATCH_FULL`) aparecem como exemplos distintos no mesmo status.
+  - `ruff`, `black`, `mypy app` (strict) e `pytest` todos verdes.
+- **Gap remanescente, deixado de propósito:** `app/seed.py::main()` (linhas 687-694, 698) — só o entrypoint de CLI do script de seed, que abre conexão real com `squadup.db`; não é um fluxo servido pela API, testar isso exigiria side-effect em arquivo real sem ganho funcional.
+- **Próximo passo concreto:** (1) commitar este trabalho (testes + OpenAPI); (2) implementar CORS/variáveis de ambiente de produção de fato (hoje `cors_origins` em `app/core/config.py` só cobre origins de dev do Expo); (3) decidir hospedagem (Railway/Render/Fly.io); (4) só então abrir PR de `feature/fase-11-cobertura-e-producao` (ou dividir em branches menores) para `dev`.
+- **Nada bloqueado.**
