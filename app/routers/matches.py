@@ -7,6 +7,7 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.enums import ExperienceLevel, Sport
 from app.models.user import User
+from app.schemas.errors import AUTH_ERRORS, error_responses
 from app.schemas.match import MatchCreate, MatchDetailRead, MatchRead
 from app.services.match_service import (
     approve_participant,
@@ -27,6 +28,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
     status_code=status.HTTP_201_CREATED,
     summary="Criar partida",
     description="Cria uma nova partida com o usuário autenticado como organizador.",
+    responses=error_responses(*AUTH_ERRORS),
 )
 def create_new_match(
     payload: MatchCreate,
@@ -67,6 +69,9 @@ def read_matches(
     summary="Detalhes da partida",
     description="Retorna os detalhes de uma partida, com organizador e participantes "
     "expandidos.",
+    responses=error_responses(
+        (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+    ),
 )
 def read_match_detail(
     match_id: str,
@@ -81,6 +86,13 @@ def read_match_detail(
     summary="Participar de partida",
     description="Cria uma participação para o usuário autenticado: confirmada de imediato, "
     "ou pendente se a partida exigir aprovação do organizador.",
+    responses=error_responses(
+        *AUTH_ERRORS,
+        (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+        (400, "MATCH_NOT_JOINABLE", "Esta partida não está mais aceitando participantes."),
+        (400, "ALREADY_PARTICIPATING", "Você já participa desta partida."),
+        (400, "MATCH_FULL", "Esta partida não tem mais vagas."),
+    ),
 )
 def join_match_route(
     match_id: str,
@@ -95,6 +107,11 @@ def join_match_route(
     response_model=MatchRead,
     summary="Cancelar participação",
     description="Cancela a participação do usuário autenticado na partida.",
+    responses=error_responses(
+        *AUTH_ERRORS,
+        (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+        (400, "NOT_PARTICIPATING", "Você não participa desta partida."),
+    ),
 )
 def leave_match_route(
     match_id: str,
@@ -111,6 +128,12 @@ def leave_match_route(
     description="Encerra a partida (status → closed). Apenas o organizador pode encerrar, e "
     "somente enquanto ela ainda não estiver encerrada ou cancelada. Pré-requisito para o "
     "fluxo de avaliação pós-partida.",
+    responses=error_responses(
+        *AUTH_ERRORS,
+        (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+        (403, "NOT_MATCH_ORGANIZER", "Apenas o organizador pode encerrar a partida."),
+        (400, "MATCH_ALREADY_RESOLVED", "Esta partida já foi encerrada ou cancelada."),
+    ),
 )
 def close_match_route(
     match_id: str,
@@ -126,6 +149,13 @@ def close_match_route(
     summary="Aprovar solicitação de participação",
     description="Confirma a participação pendente de um usuário. Apenas o organizador da "
     "partida pode aprovar.",
+    responses=error_responses(
+        *AUTH_ERRORS,
+        (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+        (403, "NOT_MATCH_ORGANIZER", "Apenas o organizador pode aprovar participantes."),
+        (404, "PENDING_PARTICIPANT_NOT_FOUND", "Não há solicitação pendente para este usuário."),
+        (400, "MATCH_FULL", "Esta partida não tem mais vagas."),
+    ),
 )
 def approve_participant_route(
     match_id: str,
