@@ -55,6 +55,27 @@ _Fase 11 (Hardening e integração final) parcialmente concluída: `feature/fase
 - **Fechamento de partida é a única transição manual de `status`** — diferente de `open`/`full` (sempre recalculados por `_sync_match_status` a partir da contagem de `Participant.status == confirmed`, lição da Fase 7), `closed` via `POST /matches/{id}/close` é setado diretamente pelo serviço porque não há como derivá-lo de nenhuma contagem — é uma decisão do organizador, não um estado calculável. Não confundir esse caso com a regra "nunca campo solto": aqui não há duplicação de fonte de verdade, só não há fonte derivável.
 - **Migration gerada por `alembic revision --autogenerate` não segue o estilo do projeto por padrão** — o `alembic/script.py.mako` ainda usava `typing.Union`/`typing.Sequence` (padrão antigo do template do Alembic) em vez do estilo `X | Y` já usado na migration inicial (`70043fe6862c`) e exigido pelo resto do código (`ruff`/`black`). Corrigido o template para gerar já no formato certo; revisar/rodar `black`+`ruff` em qualquer migration nova mesmo assim, pois o autogenerate não formata o SQL gerado (linhas longas em `op.create_index`, por exemplo).
 
+## Próxima tarefa — Fase 12: Refinamentos de contrato para integração com o front
+
+> Só começa depois que a Fase 11 estiver de fato encerrada (itens acima). Contexto completo e
+> raciocínio das decisões D-B/D-C/D-D em `roadmap.md` §18 e em
+> `../front/.status/backend-contract.md` §6 — não duplicar aqui, só rastrear o "o quê".
+> **Bloqueia a Fase 13 do front** (`../front/.status/roadmap.md` §19): os tipos/adapters de lá
+> serão desenhados a partir do contrato que sair desta fase.
+
+| # | Tarefa | Decisão | Status |
+|---|--------|---------|--------|
+| 1 | Expandir `rated_user: PublicProfileRead` em `RatingRead` (`app/schemas/rating.py`), mesmo padrão de `MessageRead.sender` | D-B | ⚪ |
+| 2 | Decidir com o front se `RatingRead`/`ReportRead` ganham `MatchRef` (`id, title, sport, date`) em vez de só `match_id` | D-C | ⚪ |
+| 3 | Se D-C aprovado: criar schema `MatchRef` e incluir em `RatingRead.match`/`ReportRead.match` | D-C | ⚪ |
+| 4 | Decidir se o backend emite `Message(type=system)` automaticamente ao criar partida, ou se o front descarta essa simulação | D-D | ⚪ |
+| 5 | Se D-D aprovado: implementar emissão da mensagem de sistema em `app/services/match_service.py::create_match` | D-D | ⚪ |
+| 6 | Configurar CORS/variáveis de ambiente de produção (`app/core/config.py::cors_origins`) — item já pendente da Fase 11 | — | ⚪ |
+| 7 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | — | ⚪ |
+| 8 | Rotina de purge de `refresh_tokens` expirados/revogados — dívida técnica já registrada acima | — | ⚪ |
+| 9 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | — | ⚪ |
+| 10 | Regenerar `/openapi.json` após as mudanças e confirmar com o front que bate com `backend-contract.md` | — | ⚪ |
+
 ## Notas
 
 - Cada fase deve ser desenvolvida em branch própria (a partir de `dev`) e mergeada só depois de consumida com sucesso por uma tela real do front (não apenas via Swagger/Postman) — ver `roadmap.md` §2.
