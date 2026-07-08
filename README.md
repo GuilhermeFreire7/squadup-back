@@ -30,6 +30,14 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+### CORS
+
+Os origins liberados vêm de `CORS_ORIGINS` (`.env`), lista separada por vírgula. Se a
+variável não for definida, a API usa os defaults de desenvolvimento (`localhost:8081`,
+`localhost:19006`, `exp://localhost:19000` — ver `app/core/config.py::DEFAULT_CORS_ORIGINS`).
+Em produção, definir `CORS_ORIGINS` com a URL real do app publicado (Expo/EAS) assim que
+existir.
+
 ## Rodando a aplicação
 
 ```bash

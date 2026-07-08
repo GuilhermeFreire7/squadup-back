@@ -59,7 +59,7 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 1 | Configurar CORS/variáveis de ambiente de produção (`app/core/config.py::cors_origins`) — item já pendente da Fase 11 | ⚪ |
+| 1 | Configurar CORS/variáveis de ambiente de produção (`app/core/config.py::cors_origins`) — item já pendente da Fase 11 | 🟢 |
 | 2 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | ⚪ |
 | 3 | Rotina de purge de `refresh_tokens` expirados/revogados — dívida técnica já registrada acima | ⚪ |
 | 4 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | ⚪ |
@@ -94,3 +94,11 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - Confirmado no schema real: `RatingRead.rated_user: PublicProfileRead` (D-B), `RatingRead.match: MatchRef` e `ReportRead.match: MatchRef | null` (D-C) — tudo batendo com o que `progress.md`/`queue.md` já descreviam como implementado.
 - `../squadup-app/.status/backend-contract.md` (repositório do front, na verdade chamado `squadup-app`, não `../front`) atualizado com uma nota de topo confirmando que D-B, D-C e D-D estão aplicadas e validadas contra o `/openapi.json` real — as seções antigas (2.1, 2.4–2.6) ficam como histórico da comparação original, sem necessidade de reescrever o documento inteiro.
 - **Nota de ambiente:** o caminho `../front` citado em `roadmap.md`/`vision.md` não existe neste ambiente de trabalho — o repositório do front está em `c:\Users\Public\workspace-personal\squadup-app`, não `..\front`. Vale ajustar essas referências relativas se o documento for revisado novamente, para não confundir sessões futuras.
+
+## Atualização — item 1 concluído (sessão 22, 2026-07-08)
+
+- `cors_origins` (`app/core/config.py`) agora é configurável via `CORS_ORIGINS` no `.env`, lista separada por vírgula (`Annotated[list[str], NoDecode]` + `field_validator(mode="before")`, necessário porque `pydantic-settings` tenta decodificar `list[str]` como JSON antes de qualquer validador rodar — `NoDecode` desliga esse parsing automático).
+- Sem `CORS_ORIGINS` definida, mantém os defaults de dev (`DEFAULT_CORS_ORIGINS`: `localhost:8081`, `localhost:19006`, `exp://localhost:19000`) — comportamento anterior preservado, nada quebra em ambientes já configurados.
+- `.env.example` documentado (comentário com o formato esperado, comentado por padrão). README.md ganhou seção "CORS" explicando a variável.
+- Novo teste `app/tests/test_config.py` (2 casos: default sem env var, parsing de valor com vírgula). Gate completo verde: `pytest` (108 testes, 99.09% cobertura), `ruff`, `black`, `mypy`, `alembic check` (sem impacto de schema, como esperado).
+- **Ainda falta para fechar o item 1 de fato:** a URL real do app publicado (Expo/EAS) ainda não existe — quando existir, basta definir `CORS_ORIGINS` no ambiente de produção, nenhuma mudança de código adicional é necessária.
