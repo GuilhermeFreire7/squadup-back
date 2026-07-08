@@ -15,7 +15,7 @@ _Fase 11 (Hardening e integração final) em andamento na branch `feature/fase-1
 
 - Cobertura de testes automatizados para os fluxos principais de cada fase anterior (já em bom estado: 96 testes, 97.89% de cobertura — revisar lacunas específicas antes de considerar suficiente);
 - Revisão da documentação OpenAPI (`/docs`) como contrato oficial para o front;
-- Configuração de CORS/ambiente para produção;
+- Configuração de CORS e variáveis de ambiente para produção;
 - Decisão de hospedagem de deploy (Railway/Render/Fly.io — ainda sem escolha, ver "Bloqueios");
 - Commitar e abrir PR de `feature/fase-11-hardening` para `dev` com o trabalho de refresh token + fechamento de partida já feito (ver "Checkpointer" ao final deste arquivo para o estado exato);
 - No front: substituir cada Context mockado por hooks de React Query, um de cada vez.

@@ -230,7 +230,7 @@ Preparar o backend para uso real com o front, encerrando a dependência de dados
 
 - Cobertura de testes automatizados (`pytest`) para os fluxos principais de cada fase anterior;
 - Revisão da documentação OpenAPI gerada automaticamente pelo FastAPI (`/docs`) como contrato oficial para o front consumir;
-- Configuração de CORS/ambiente para produção;
+- Configuração de CORS e variáveis de ambiente para produção;
 - Deploy (Railway, Render ou Fly.io — a decidir; nenhuma escolha foi feita ainda);
 - No front: substituir cada Context mockado (`AuthContext`, `MatchesContext`, `MatchFiltersContext`, `MessagesContext`, `RatingsContext`, `ReportsContext`) por hooks de React Query consumindo esta API, um de cada vez, mantendo os testes do front verdes a cada substituição.
 
