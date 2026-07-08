@@ -5,6 +5,7 @@ from app.models.enums import ReportStatus
 from app.models.match import Match
 from app.models.report import Report
 from app.models.user import User
+from app.schemas.match import MatchRef
 from app.schemas.report import ReportAction, ReportCreate, ReportRead, ReportUpdate
 from app.services.user_service import build_public_profile
 
@@ -40,7 +41,7 @@ def build_report_read(session: Session, report: Report) -> ReportRead:
         id=report.id,
         reported_user=build_public_profile(session, report.reported_user),
         reporter=build_public_profile(session, report.reporter_user),
-        match_id=report.match_id,
+        match=MatchRef.model_validate(report.match) if report.match_id else None,
         reason=report.reason,
         description=report.description,
         status=report.status,

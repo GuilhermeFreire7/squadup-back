@@ -4,7 +4,7 @@
 
 ## Em andamento
 
-_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes (99.07%) e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Itens de infraestrutura que sobraram (CORS/produção, hospedagem) migraram para a tabela da Fase 12 abaixo, já que ambas as fases fecham juntas antes da integração com o front. Fase 12 (Refinamentos de contrato) iniciada nesta sessão (20): D-B concluído (ver `progress.md`). Ambiente local (`.env`, venv, migrations, seed, `uvicorn`) validado nesta sessão — ver `progress.md`, "Ambiente local validado (sessão 20)"._
+_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes (99.07%) e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Itens de infraestrutura que sobraram (CORS/produção, hospedagem) migraram para a tabela da Fase 12 abaixo, já que ambas as fases fecham juntas antes da integração com o front. Fase 12 (Refinamentos de contrato): D-B, D-C e D-D concluídos nesta sessão (21) — ver `progress.md`. Restam só os itens de infraestrutura (CORS/produção, hospedagem, purge de `refresh_tokens`, logout de todos os dispositivos) e regenerar/confirmar o `/openapi.json` com o front._
 
 ## Bloqueios
 
@@ -16,6 +16,7 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - **`main` está atrasada em relação a `dev`** desde a Fase 1 — nenhuma fase ainda foi promovida para `main`. Reavaliar quando/se isso importa (ex.: antes do primeiro deploy real na Fase 11).
 - **`refresh_tokens` sem rotina de limpeza** (nova, identificada na Fase 11) — linhas revogadas/expiradas nunca são removidas da tabela; ela cresce indefinidamente a cada login/refresh. Sem impacto funcional hoje (a busca é por `token_hash` indexado, não full scan), mas vale uma rotina de purge (ex.: BackgroundTask periódica ou job externo deletando `expires_at < now() OR revoked = true` com alguma margem) antes do primeiro deploy real com tráfego contínuo.
 - **Sem endpoint de "logout de todos os dispositivos"** (nova, identificada na Fase 11) — `POST /auth/logout` revoga um único refresh token por vez; não há como um usuário invalidar todas as sessões ativas de uma vez (ex.: em caso de suspeita de conta comprometida). Avaliar se o front precisa disso antes de considerar a Fase 11 encerrada.
+- **D-C e D-D (Fase 12) foram implementados sem uma rodada formal de alinhamento com o front** (nova, identificada na sessão 21) — o `roadmap.md` §18 previa "decidir com o front" antes de codar; nesta sessão a aprovação foi assumida a partir da instrução direta do usuário para prosseguir com a implementação. O contrato resultante (`MatchRef` em `RatingRead`/`ReportRead`, mensagem de sistema automática) é razoável e documentado, mas ainda não foi confirmado contra `../front/.status/backend-contract.md`. Fazer essa confirmação antes de considerar a Fase 12 100% encerrada (item 5 da tabela abaixo).
 
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
@@ -47,26 +48,23 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - **Fechamento de partida é a única transição manual de `status`** — diferente de `open`/`full` (sempre recalculados por `_sync_match_status` a partir da contagem de `Participant.status == confirmed`, lição da Fase 7), `closed` via `POST /matches/{id}/close` é setado diretamente pelo serviço porque não há como derivá-lo de nenhuma contagem — é uma decisão do organizador, não um estado calculável. Não confundir esse caso com a regra "nunca campo solto": aqui não há duplicação de fonte de verdade, só não há fonte derivável.
 - **Migration gerada por `alembic revision --autogenerate` não segue o estilo do projeto por padrão** — o `alembic/script.py.mako` ainda usava `typing.Union`/`typing.Sequence` (padrão antigo do template do Alembic) em vez do estilo `X | Y` já usado na migration inicial (`70043fe6862c`) e exigido pelo resto do código (`ruff`/`black`). Corrigido o template para gerar já no formato certo; revisar/rodar `black`+`ruff` em qualquer migration nova mesmo assim, pois o autogenerate não formata o SQL gerado (linhas longas em `op.create_index`, por exemplo).
 
-## Próxima tarefa — Fase 12: Refinamentos de contrato para integração com o front
+## Próxima tarefa — Fase 12: itens de infraestrutura restantes
 
-> Só começa depois que a Fase 11 estiver de fato encerrada (itens acima). Contexto completo e
-> raciocínio das decisões D-B/D-C/D-D em `roadmap.md` §18 e em
-> `../front/.status/backend-contract.md` §6 — não duplicar aqui, só rastrear o "o quê".
+> As três decisões de contrato (D-B, D-C, D-D) já estão concluídas e implementadas — ver
+> `progress.md` §"Fase 12" para o detalhe de cada uma. Falta só o bloco de infraestrutura abaixo
+> para a Fase 12 (e a Fase 11, que compartilha esses pendentes) serem formalmente encerradas.
+> Contexto completo em `roadmap.md` §18 e `../front/.status/backend-contract.md` §6.
 > **Bloqueia a Fase 13 do front** (`../front/.status/roadmap.md` §19): os tipos/adapters de lá
 > serão desenhados a partir do contrato que sair desta fase.
 
-| # | Tarefa | Decisão | Status |
-|---|--------|---------|--------|
-| 1 | Expandir `rated_user: PublicProfileRead` em `RatingRead` (`app/schemas/rating.py`), mesmo padrão de `MessageRead.sender` | D-B | 🟢 concluído — ver `progress.md` §"Fase 12" |
-| 2 | Decidir com o front se `RatingRead`/`ReportRead` ganham `MatchRef` (`id, title, sport, date`) em vez de só `match_id` | D-C | ⚪ |
-| 3 | Se D-C aprovado: criar schema `MatchRef` e incluir em `RatingRead.match`/`ReportRead.match` | D-C | ⚪ |
-| 4 | Decidir se o backend emite `Message(type=system)` automaticamente ao criar partida, ou se o front descarta essa simulação | D-D | ⚪ |
-| 5 | Se D-D aprovado: implementar emissão da mensagem de sistema em `app/services/match_service.py::create_match` | D-D | ⚪ |
-| 6 | Configurar CORS/variáveis de ambiente de produção (`app/core/config.py::cors_origins`) — item já pendente da Fase 11 | — | ⚪ |
-| 7 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | — | ⚪ |
-| 8 | Rotina de purge de `refresh_tokens` expirados/revogados — dívida técnica já registrada acima | — | ⚪ |
-| 9 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | — | ⚪ |
-| 10 | Regenerar `/openapi.json` após as mudanças e confirmar com o front que bate com `backend-contract.md` | — | ⚪ |
+| # | Tarefa | Status |
+|---|--------|--------|
+| 1 | Configurar CORS/variáveis de ambiente de produção (`app/core/config.py::cors_origins`) — item já pendente da Fase 11 | ⚪ |
+| 2 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | ⚪ |
+| 3 | Rotina de purge de `refresh_tokens` expirados/revogados — dívida técnica já registrada acima | ⚪ |
+| 4 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | ⚪ |
+| 5 | Regenerar `/openapi.json` após as mudanças de D-C/D-D e confirmar com o front que bate com `backend-contract.md` | ⚪ |
+| 6 | Commitar e abrir PR de `feature/fase-12-contrato` para `dev` depois que o usuário revisar o diff (ainda não commitado nesta sessão) | ⚪ |
 
 ## Notas
 
@@ -78,10 +76,14 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 
 ## Checkpointer — retomar aqui na próxima sessão
 
-**Não há bug em aberto.** Sessão 20 encerrada com D-B commitado. Estado exato para retomar:
+**Não há bug em aberto.** Sessão 21 encerrada com D-C e D-D implementados, validados e **commitados**. Estado exato para retomar:
 
-- **Branch atual:** `feature/fase-12-contrato` (cortada de `dev`), commit `712dba7` ("feat: expande rated_user em RatingRead (Fase 12, D-B)") — working tree limpo, nada pendente de commit. Sem PR aberto ainda.
-- **O que está feito e verde nesta branch:** D-B completo — `RatingRead.rated_user_id` (str solta, `app/schemas/rating.py:20`) substituído por `RatingRead.rated_user: PublicProfileRead`; `app/services/rating_service.py::build_rating_read` (linha ~54) monta esse campo via `build_public_profile(session, rating.rated_user)`, mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`. Campo interno do model `Rating.rated_user_id` (`app/models/rating.py:16`, FK real) não mudou — só o schema de resposta da API. Teste `app/tests/test_ratings.py::test_confirmed_participant_can_rate_another_after_match_closed` (linha 137) atualizado para checar `body["rated_user"]["id"]`. Gate completo verde: `pytest` (105 testes, 99.07% cobertura), `ruff check`, `black --check`, `mypy app` (strict), `alembic check` (sem divergência). Validado manualmente com `uvicorn` local: `/openapi.json` mostra `RatingRead` com `rated_user` (não mais `rated_user_id`); `GET /users/user-1/ratings` contra o `squadup.db` do seed retornou o objeto expandido de verdade.
-- **Ambiente local:** validado nesta sessão — `.env` criado (não versionado), dependências da venv já satisfeitas, `alembic` em dia (`b4fcc804c2cd`), seed populado, `uvicorn`/`/health`/`/docs`/`/openapi.json` respondendo. Nenhum servidor de teste ficou rodando ao final (porta 8000 livre).
-- **Próximo passo concreto (não iniciado):** D-C — decidir com o front se `RatingRead.match`/`ReportRead.match` ganham um `MatchRef` leve (`id, title, sport, date`) em vez de só `match_id` (linha 2 da tabela da Fase 12 abaixo, `roadmap.md` §18). É uma decisão de produto/contrato a alinhar antes de codar — não é um bug nem exige investigação de código adicional. Se aprovado, a implementação é: criar `MatchRef` em `app/schemas/match.py` (ou novo arquivo), incluir em `RatingRead`/`ReportRead`, e povoar em `rating_service.py`/`report_service.py` a partir do `Match` já carregado. Depois de D-C, resta D-D (mensagem de sistema automática ao criar partida) e os itens de infraestrutura (CORS produção, hospedagem, purge de `refresh_tokens`, logout de todos os dispositivos) — todos ⚪ na tabela abaixo.
+- **Branch atual:** `feature/fase-12-contrato` (cortada de `dev`), commit `005f02b` ("feat: expande MatchRef em RatingRead/ReportRead e emite mensagem de sistema na criação de partida (Fase 12, D-C/D-D)") — working tree limpo, nada pendente de commit. **Sem push feito e sem PR aberto** (não solicitado nesta sessão — só push/PR quando pedido explicitamente).
+- **O que está feito e verde nesta branch (D-C):** novo schema `MatchRef` (`id, title, sport, date`) em `app/schemas/match.py:10-16`. `RatingRead.match_id` → `RatingRead.match: MatchRef` (`app/schemas/rating.py:19`); `ReportRead.match_id` → `ReportRead.match: MatchRef | None` (`app/schemas/report.py:23`, opcional porque `Report.match_id` é FK nula). Populado em `rating_service.py::build_rating_read` (linha ~54) e `report_service.py::build_report_read` (linha ~43) via `MatchRef.model_validate(...)` a partir da relação `.match` já carregada, sem query extra. `alembic check` confirmou que não há divergência de model. Testes `test_ratings.py`/`test_reports.py` atualizados para checar `body["match"]["id"]`/`body["match"] is None`.
+- **O que está feito e verde nesta branch (D-D):** `app/services/match_service.py::create_match` (linha ~77) agora insere uma `Message(type=MessageType.SYSTEM, sender_id=organizer.id, text="Partida criada. Bem-vindos!")` logo após criar a partida (dois `commit()` sequenciais — a partida precisa existir primeiro pela FK `messages.match_id`). Organizador escolhido como `sender_id` porque `Message.sender_id` é FK obrigatória (não há "sem remetente" no model). Novo teste `test_create_match_emits_system_message` em `test_matches.py`.
+- **Gate completo verde no momento do commit:** `pytest` (106 testes, 99.08% cobertura), `ruff check`, `black --check`, `mypy app` (strict), `alembic check` — todos passando. Validado manualmente com `uvicorn` local: `/openapi.json` confirma `MatchRef` referenciado corretamente em `RatingRead.match`/`ReportRead.match`; fluxo real `POST /auth/register` → `POST /matches` → `GET /matches/{id}/messages` confirmou a mensagem de sistema sendo criada automaticamente; `GET /users/user-1/ratings` contra o seed confirmou `match` expandido.
+- **README.md atualizado** nas seções "Mensagens" (menção à mensagem de sistema automática), "Avaliação pós-partida" (`RatingRead.match` como `MatchRef`) e "Denúncia e moderação" (`ReportRead.match` como `MatchRef | null`).
+- **Ambiente local:** durante esta sessão, `alembic upgrade head` falhou porque a tabela `alembic_version` do `squadup.db` local estava vazia (inconsistência de sessão anterior, não relacionada ao código) — corrigido com `alembic stamp head` (banco já tinha todas as tabelas de `b4fcc804c2cd`, só faltava o carimbo de versão). Nenhum servidor de teste ficou rodando ao final (portas 8001/8002 liberadas).
+- **Dívida nova registrada:** D-C/D-D foram aprovados por instrução direta do usuário nesta sessão, sem uma rodada formal de confirmação com o front contra `../front/.status/backend-contract.md` — ver "Dívidas técnicas conhecidas" acima.
+- **Próximo passo concreto (não iniciado):** os 6 itens da tabela "Próxima tarefa" acima — nenhum tem dependência entre si, podem ser feitos em qualquer ordem. O mais imediato é o item 5 (regenerar `/openapi.json` e confirmar com o front) e o item 6 (decidir se este commit vai para PR/push agora ou se aguarda mais trabalho acumulado na branch).
 - **Nada bloqueado.**

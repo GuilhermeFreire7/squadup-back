@@ -133,7 +133,7 @@ def test_confirmed_participant_can_rate_another_after_match_closed(
 
     assert response.status_code == 201
     body = response.json()
-    assert body["match_id"] == match.id
+    assert body["match"]["id"] == match.id
     assert body["rated_user"]["id"] == organizer.id
     assert body["rater"]["id"] == rater["id"]
     assert body["overall"] == 5

@@ -296,6 +296,22 @@ def test_create_match_sets_authenticated_user_as_organizer(
     assert body["organizer_id"] == me_response.json()["id"]
 
 
+def test_create_match_emits_system_message(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_response = client.post("/matches", json=MATCH_CREATE_PAYLOAD, headers=headers)
+    match_id = create_response.json()["id"]
+
+    messages_response = client.get(f"/matches/{match_id}/messages", headers=headers)
+
+    assert messages_response.status_code == 200
+    messages = messages_response.json()
+    assert len(messages) == 1
+    assert messages[0]["type"] == "system"
+
+
 def test_create_match_appears_in_listing(db_client: tuple[TestClient, Session]) -> None:
     client, _ = db_client
     token = _register_and_login(client)

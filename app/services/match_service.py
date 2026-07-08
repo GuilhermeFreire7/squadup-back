@@ -3,12 +3,15 @@ from datetime import date
 from fastapi import HTTPException, status
 from sqlmodel import Session, func, select
 
-from app.models.enums import ExperienceLevel, MatchStatus, ParticipationStatus, Sport
+from app.models.enums import ExperienceLevel, MatchStatus, MessageType, ParticipationStatus, Sport
 from app.models.match import Match
+from app.models.message import Message
 from app.models.participant import Participant
 from app.models.user import User
 from app.schemas.match import MatchCreate, MatchDetailRead, MatchRead, ParticipantRead
 from app.services.user_service import build_public_profile
+
+MATCH_CREATED_SYSTEM_MESSAGE = "Partida criada. Bem-vindos!"
 
 
 def get_confirmed_count(session: Session, match_id: str) -> int:
@@ -79,6 +82,17 @@ def create_match(session: Session, payload: MatchCreate, organizer: User) -> Mat
     session.add(match)
     session.commit()
     session.refresh(match)
+
+    session.add(
+        Message(
+            match_id=match.id,
+            sender_id=organizer.id,
+            text=MATCH_CREATED_SYSTEM_MESSAGE,
+            type=MessageType.SYSTEM,
+        )
+    )
+    session.commit()
+
     return build_match_read(session, match)
 
 

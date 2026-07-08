@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.match import MatchRef
 from app.schemas.user import PublicProfileRead
 
 
@@ -16,7 +17,7 @@ class RatingCreate(BaseModel):
 
 class RatingRead(BaseModel):
     id: str = Field(examples=["rating-1"])
-    match_id: str = Field(examples=["match-1"])
+    match: MatchRef
     rated_user: PublicProfileRead
     rater: PublicProfileRead
     punctuality: int = Field(examples=[5])

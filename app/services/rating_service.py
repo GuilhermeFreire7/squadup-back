@@ -6,6 +6,7 @@ from app.models.match import Match
 from app.models.participant import Participant
 from app.models.rating import Rating
 from app.models.user import User
+from app.schemas.match import MatchRef
 from app.schemas.rating import RatingCreate, RatingRead
 from app.services.user_service import build_public_profile
 
@@ -50,7 +51,7 @@ def _ensure_was_confirmed(
 def build_rating_read(session: Session, rating: Rating) -> RatingRead:
     return RatingRead(
         id=rating.id,
-        match_id=rating.match_id,
+        match=MatchRef.model_validate(rating.match),
         rated_user=build_public_profile(session, rating.rated_user),
         rater=build_public_profile(session, rating.rater_user),
         punctuality=rating.punctuality,
