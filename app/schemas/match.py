@@ -20,6 +20,15 @@ class MatchCreate(BaseModel):
     requires_approval: bool = Field(default=False, examples=[False])
 
 
+class MatchRef(BaseModel):
+    id: str = Field(examples=["match-1"])
+    title: str = Field(examples=["Pelada de domingo na arena"])
+    sport: Sport = Field(examples=[Sport.FOOTBALL])
+    date: date_ = Field(examples=["2026-05-25"])
+
+    model_config = {"from_attributes": True}
+
+
 class ParticipantRead(BaseModel):
     user: PublicProfileRead
     status: str = Field(examples=["confirmed"])

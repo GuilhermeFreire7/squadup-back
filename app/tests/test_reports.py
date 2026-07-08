@@ -99,7 +99,7 @@ def test_authenticated_user_can_report_another_user(
     body = response.json()
     assert body["reported_user"]["id"] == reported.id
     assert body["status"] == "pending"
-    assert body["match_id"] is None
+    assert body["match"] is None
 
 
 def test_report_can_reference_a_match(db_client: tuple[TestClient, Session]) -> None:
@@ -129,7 +129,7 @@ def test_report_can_reference_a_match(db_client: tuple[TestClient, Session]) -> 
     )
 
     assert response.status_code == 201
-    assert response.json()["match_id"] == match.id
+    assert response.json()["match"]["id"] == match.id
 
 
 def test_report_rejects_unknown_match(db_client: tuple[TestClient, Session]) -> None:

@@ -85,10 +85,12 @@ O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join
 
 Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao organizador da partida ou a participantes com `Participant.status == confirmed` — `403 NOT_MATCH_PARTICIPANT` caso contrário, `404 MATCH_NOT_FOUND` se a partida não existir. Não há WebSocket nesta fase; o front deve fazer polling/refetch.
 
+Ao criar uma partida (`POST /matches`), o servidor emite automaticamente uma primeira `Message` com `type: "system"` (`sender` = organizador, texto fixo "Partida criada. Bem-vindos!") — o chat da partida nunca começa vazio.
+
 ## Avaliação pós-partida
 
 - `POST /matches/{id}/ratings/{userId}` — usuário autenticado avalia outro usuário com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`, cada um de 1 a 5) e `comment` opcional. Regras de negócio aplicadas no servidor: `400 MATCH_NOT_CLOSED` se `match.status != closed`; `400 CANNOT_RATE_SELF` se tentar avaliar a si mesmo; `403 NOT_MATCH_PARTICIPANT` se o avaliador não tinha `Participant.status == confirmed` nessa partida; `400 RATED_USER_NOT_PARTICIPANT` se o avaliado não tinha `confirmed` nessa partida; `400 ALREADY_RATED` se o mesmo par avaliador/avaliado já tiver uma avaliação para essa partida.
-- `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` e `rated_user` expandidos como perfil público (mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`; `RatingRead` não expõe mais `rated_user_id` solto).
+- `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` e `rated_user` expandidos como perfil público (mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`; `RatingRead` não expõe mais `rated_user_id` solto). `RatingRead.match` também é expandido como `MatchRef` (`id, title, sport, date`) em vez de um `match_id` solto, para o front não precisar de uma segunda chamada para saber a que partida a avaliação se refere.
 
 `average_rating` do perfil (`GET /users/{id}`, `GET /users/me`) é sempre recalculado a partir das linhas de `ratings` — nenhuma avaliação é somada manualmente a um total solto.
 
@@ -96,7 +98,7 @@ Para chegar a `match.status == closed` sem manipular o banco diretamente, use `P
 
 ## Denúncia e moderação
 
-- `POST /reports` — usuário autenticado denuncia outro usuário (`reported_user_id`, `reason`, `description`, `match_id` opcional). `400 CANNOT_REPORT_SELF` se tentar denunciar a si mesmo; `404 USER_NOT_FOUND`/`404 MATCH_NOT_FOUND` se o usuário denunciado ou a partida referenciada não existirem.
+- `POST /reports` — usuário autenticado denuncia outro usuário (`reported_user_id`, `reason`, `description`, `match_id` opcional). `400 CANNOT_REPORT_SELF` se tentar denunciar a si mesmo; `404 USER_NOT_FOUND`/`404 MATCH_NOT_FOUND` se o usuário denunciado ou a partida referenciada não existirem. Na resposta (`ReportRead`), o `match_id` de entrada vira `match: MatchRef | null` (`id, title, sport, date`), `null` quando a denúncia não referencia nenhuma partida.
 - `GET /reports` — lista todas as denúncias, mais recentes primeiro. Requer `role == admin`; `403 ADMIN_ONLY` caso contrário.
 - `PATCH /reports/{id}` — aplica uma ação de moderação (`action`: `archive`, `warn` ou `ban`), atualizando `status` da denúncia (`archived`, `warned`, `banned`). Requer `role == admin`; `400 REPORT_ALREADY_RESOLVED` se a denúncia não estiver mais `pending`; `404 REPORT_NOT_FOUND` se não existir.
 

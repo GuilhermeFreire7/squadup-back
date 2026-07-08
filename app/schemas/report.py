@@ -4,6 +4,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 from app.models.enums import ReportReason, ReportStatus
+from app.schemas.match import MatchRef
 from app.schemas.user import PublicProfileRead
 
 
@@ -20,7 +21,7 @@ class ReportRead(BaseModel):
     id: str = Field(examples=["3f1b1c2e-4a5b-4c6d-8e9f-0a1b2c3d4e5f"])
     reported_user: PublicProfileRead
     reporter: PublicProfileRead
-    match_id: str | None = Field(default=None, examples=["match-1"])
+    match: MatchRef | None = Field(default=None)
     reason: ReportReason = Field(examples=[ReportReason.BAD_BEHAVIOR])
     description: str = Field(examples=["Foi agressivo com outros jogadores durante a partida."])
     status: ReportStatus = Field(examples=[ReportStatus.PENDING])
