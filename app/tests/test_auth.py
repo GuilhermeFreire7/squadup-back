@@ -1,4 +1,16 @@
+from collections.abc import Generator
+
+import jwt
+import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine, delete, select
+from sqlmodel.pool import StaticPool
+
+from app.core.config import get_settings
+from app.core.database import get_session
+from app.core.security import ALGORITHM, create_access_token
+from app.main import app
+from app.models.user import User
 
 VALID_PAYLOAD = {
     "name": "Ana Souza",
@@ -153,6 +165,61 @@ def test_logout_revokes_refresh_token(client: TestClient) -> None:
 
 def test_logout_rejects_unknown_token(client: TestClient) -> None:
     response = client.post("/auth/logout", json={"refresh_token": "does-not-exist"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_me_rejects_token_without_subject(client: TestClient) -> None:
+    settings = get_settings()
+    token = jwt.encode({"foo": "bar"}, settings.secret_key, algorithm=ALGORITHM)
+
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_CREDENTIALS"
+
+
+def test_me_rejects_token_for_deleted_user(client: TestClient) -> None:
+    token = create_access_token(subject="does-not-exist")
+
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "INVALID_CREDENTIALS"
+
+
+@pytest.fixture
+def db_client() -> Generator[tuple[TestClient, Session], None, None]:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    session = Session(engine)
+
+    def get_session_override() -> Generator[Session, None, None]:
+        yield session
+
+    app.dependency_overrides[get_session] = get_session_override
+    with TestClient(app) as test_client:
+        yield test_client, session
+    app.dependency_overrides.clear()
+    session.close()
+
+
+def test_refresh_rejects_when_user_no_longer_exists(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    tokens = _login(client)
+
+    user = session.exec(select(User)).one()
+    session.exec(delete(User).where(User.id == user.id))  # type: ignore[arg-type]
+    session.commit()
+
+    response = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
