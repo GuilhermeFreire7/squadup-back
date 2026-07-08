@@ -6,6 +6,19 @@
 
 _Fase 11 (Hardening e integração final) parcialmente concluída: `feature/fase-11-hardening` foi mergeada em `dev` via PR #27 (commit `a794760`) — refresh token com rotação e `POST /matches/{id}/close` estão em `dev`. Os dois commits seguintes (`77da987`, `b12d0d4`) foram só correção de falso positivo do gitleaks nos docs de `.status/`, sem código novo. Itens restantes da Fase 11 (cobertura de testes, revisão de OpenAPI, CORS/variáveis de produção, hospedagem, integração com o front) ainda não iniciados — ver "Próxima tarefa" abaixo._
 
+## Ambiente local (pré-requisito prático, sessão 19)
+
+> Antes de implementar qualquer item da Fase 12 (`roadmap.md` §18), é preciso ter o servidor
+> rodando local para validar as mudanças — não dá pra testar D-B/D-C/D-D só lendo código.
+
+- [ ] `cp .env.example .env` e preencher `SECRET_KEY` com um valor real (o default
+  `"change-me-in-.env"` em `app/core/config.py` é só placeholder — `DATABASE_URL` pode
+  continuar `sqlite:///./squadup.db`, é a escolha já fechada para dev);
+- [ ] criar a venv e `pip install -r requirements.txt`;
+- [ ] `alembic upgrade head`;
+- [ ] rodar o seed (`app/seed.py`) para ter dados espelhando os mocks do front;
+- [ ] `uvicorn app.main:app --reload` e confirmar `GET /health` + `GET /docs` respondendo.
+
 ## Bloqueios
 
 - Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
