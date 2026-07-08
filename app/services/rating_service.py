@@ -51,7 +51,7 @@ def build_rating_read(session: Session, rating: Rating) -> RatingRead:
     return RatingRead(
         id=rating.id,
         match_id=rating.match_id,
-        rated_user_id=rating.rated_user_id,
+        rated_user=build_public_profile(session, rating.rated_user),
         rater=build_public_profile(session, rating.rater_user),
         punctuality=rating.punctuality,
         respect=rating.respect,

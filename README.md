@@ -88,7 +88,7 @@ Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao or
 ## Avaliação pós-partida
 
 - `POST /matches/{id}/ratings/{userId}` — usuário autenticado avalia outro usuário com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`, cada um de 1 a 5) e `comment` opcional. Regras de negócio aplicadas no servidor: `400 MATCH_NOT_CLOSED` se `match.status != closed`; `400 CANNOT_RATE_SELF` se tentar avaliar a si mesmo; `403 NOT_MATCH_PARTICIPANT` se o avaliador não tinha `Participant.status == confirmed` nessa partida; `400 RATED_USER_NOT_PARTICIPANT` se o avaliado não tinha `confirmed` nessa partida; `400 ALREADY_RATED` se o mesmo par avaliador/avaliado já tiver uma avaliação para essa partida.
-- `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` expandido como perfil público.
+- `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` e `rated_user` expandidos como perfil público (mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`; `RatingRead` não expõe mais `rated_user_id` solto).
 
 `average_rating` do perfil (`GET /users/{id}`, `GET /users/me`) é sempre recalculado a partir das linhas de `ratings` — nenhuma avaliação é somada manualmente a um total solto.
 
