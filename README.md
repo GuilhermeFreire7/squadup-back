@@ -175,6 +175,10 @@ alembic upgrade head
 
 A URL do banco é lida de `DATABASE_URL` (`.env`), a mesma fonte de verdade usada pela aplicação — ver `alembic/env.py` e `app/core/config.py`.
 
+## Roadmap
+
+Fases 1 a 12 concluídas (auth, partidas, participação, mensagens, avaliações, denúncias, hardening e refinamentos de contrato — ver [`.status/roadmap.md`](.status/roadmap.md) para o detalhe completo). Próxima fase planejada: **Fase 13 — geolocalização real e notificações push** (`.status/roadmap.md` §19), que eram o plano original do produto desde o início. Está registrada com as decisões de design já mapeadas, mas **bloqueada** até a Fase 13 do front (integração real com esta API, hoje ainda 100% mockada — ver `../front/.status/roadmap.md` §19) terminar, para não implementar sobre um contrato de API ainda em mudança.
+
 ## Seed de dados de exemplo
 
 ```bash

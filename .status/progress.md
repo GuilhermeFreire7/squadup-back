@@ -305,3 +305,11 @@ Branch `feature/fase-12-infra-final`, cortada de `dev`.
 **Resultado alcançado (itens 2 e 4):** `pytest` (113 passed, 99.11% cobertura, era 110/99.10%), `ruff check`, `black --check`, `mypy app` (strict), `bandit` e `pip-audit` (sem CVEs no `psycopg` novo) todos verdes; `alembic check` confirma que a troca de driver não gera migration nova. Validado manualmente com `uvicorn` local: `GET /health` → 200; `/openapi.json` confirma `/auth/logout-all` registrado.
 
 **Fase 12 (e a Fase 11, que compartilhava esses pendentes) formalmente encerrada com isso** — todos os 6 itens da tabela de `queue.md` concluídos.
+
+## Fase 13 — Geolocalização real e notificações push (registrada, ainda não iniciada)
+
+Sessão de 2026-07-08 (mesmo dia da Fase 12, continuação): a pedido do usuário, esta sessão leu `../front/TCC.tex` e o estado real dos dois repositórios para traçar um plano de entrega final (`../front/.status/plano-de-entrega.md`) — cobrindo deploy do backend, integração real do front (Fase 13 de lá) e o que falta documentar na monografia. Nesse processo, o usuário confirmou que geolocalização real e notificações push **não são features "extras" a decidir depois** — eram o plano original do produto desde o início, e serão implementadas de fato.
+
+Registrado como **Fase 13** deste repositório (`roadmap.md` §19), com decisões de design (fonte das coordenadas, raio de busca, provedor de push via Expo, eventos que disparam notificação) e tarefas detalhadas, mas **nenhum código foi escrito** — a fase está formalmente bloqueada até a Fase 13 do front (integração real com a API, hoje 0% iniciada) terminar. Instrução explícita do usuário nesta sessão: parar de tocar no repositório do front por ora e manter o foco documentando/planejando aqui.
+
+Documentos atualizados: `vision.md` §8 (geolocalização e push saíram de "fora do escopo"), `roadmap.md` (tabela de status, §16, §17, nova §19), `queue.md` ("Em andamento", "Próximo passo sugerido", "Checkpointer"), `README.md`.
