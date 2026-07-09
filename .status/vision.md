@@ -92,12 +92,18 @@ Endpoints mínimos para cobrir, com dados reais, os mesmos fluxos já navegávei
 
 Herdado do front (`vision.md`, seção 14) e ainda válido do lado do backend:
 
-- geolocalização real (busca por proximidade geográfica de fato, com coordenadas e raio);
 - chat em tempo real via WebSocket (a v1 pode ser poll/REST);
-- notificações push reais;
 - upload real de imagens (avatar/fotos de partida) — pode começar com URLs externas;
 - pagamento ou reserva real de quadras;
 - sistema de moderação sofisticado (fila com SLA, múltiplos moderadores, auditoria) — o suficiente é replicar as 3 ações já previstas no protótipo (arquivar, advertir, banir).
+
+**Atualização (2026-07-08):** geolocalização real e notificações push reais **saíram desta
+lista** — eram o plano original do produto desde o início (não escopo novo), e o autor
+confirmou que serão implementadas de fato, não só citadas como trabalho futuro no TCC. Ver
+`roadmap.md` §19 (Fase 13) para o detalhamento — fase registrada e **bloqueada até a Fase 13 do
+front (`../front/.status/roadmap.md` §19) terminar**, para não construir sobre um contrato de
+API ainda em mudança. (Mesmo número "13" nos dois lados por coincidência — cada repositório
+numera suas próprias fases de forma independente, mesmo padrão já usado no projeto.)
 
 ## 9. Critérios de sucesso do MVP com backend
 

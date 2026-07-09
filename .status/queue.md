@@ -4,7 +4,9 @@
 
 ## Em andamento
 
-_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Fase 12 (Refinamentos de contrato): D-B, D-C, D-D (decisões de contrato) e os itens 1, 3, 5 e 6 concluídos — `feature/fase-12-contrato` mergeada em `dev` via PR #31. Itens 2 e 4 (últimos da Fase 11/12) resolvidos e **commitados** (3 commits) na branch `feature/fase-12-infra-final` (cortada de `dev` em 2026-07-08): hospedagem decidida (Railway) com `Procfile`/driver Postgres/documentação de deploy prontos, e `POST /auth/logout-all` implementado para logout de todos os dispositivos. Ainda **sem push/PR** — só quando o usuário pedir, ver "Checkpointer" abaixo. Verificado também com o repositório do front (`../front`, ver correção na seção "Bloqueios" abaixo) que a Etapa 1 do plano mestre de integração está de fato encerrada e nada bloqueia a Fase 13 de lá._
+_Fases 1 a 12 concluídas (ver `progress.md`). Fase 12 encerrada e commitada (3 commits) na branch `feature/fase-12-infra-final` (cortada de `dev` em 2026-07-08) — hospedagem decidida (Railway) e `POST /auth/logout-all` implementado. Ainda **sem push/PR** dessa branch — só quando o usuário pedir. Verificado com o repositório do front (`../front`) que a Etapa 1 do plano mestre de integração está de fato encerrada e nada bloqueia a Fase 13 de lá._
+
+_**Fase 13 (geolocalização real + notificações push) registrada em 2026-07-08** — era o plano original do produto, o autor confirmou que quer implementar de fato. Detalhamento completo em `roadmap.md` §19. **Bloqueada até a Fase 13 do front terminar** (o front ainda está 100% mockado — ver `../front/.status/plano-de-entrega.md`). Instrução explícita do usuário: parar de tocar no front por ora e focar no back; então, até o front avisar que a integração real terminou, **não há tarefa de código a fazer aqui** — só esta documentação, já concluída nesta sessão._
 
 ## Bloqueios
 
@@ -74,15 +76,26 @@ nesta mesma sessão: os documentos `../front/.status/backend-contract.md`, `queu
 `roadmap.md` foram lidos e atualizados para refletir que a Etapa 1 (este pré-requisito) está
 concluída — ver detalhe abaixo, "Checkpointer".
 
+## Plano de entrega final (app + backend + TCC)
+
+> Traçado em 2026-07-08 a partir da leitura de `../front/TCC.tex` (monografia do TCC do autor) e do estado real dos dois repositórios: **`../front/.status/plano-de-entrega.md`**. Cobre deploy real do backend (Railway), a Fase 13 de integração do front (maior bloco de trabalho restante — o front ainda é 100% mockado), build/demo do app para a defesa, estrutura de assets do TCC (hoje só existem no Overleaf) e os gaps de conteúdo da monografia (faltam ~7 casos de uso documentados, capítulo de resultados/testes, correção de trechos sobre geolocalização). Consultar antes de decidir a próxima prioridade de infraestrutura.
+
 ## Próximo passo sugerido
 
-Nenhuma tarefa nova do roadmap está em aberto no momento — Fases 1 a 12 concluídas. Antes de
-seguir para itens de "Próxima evolução" (`roadmap.md` §17: WebSocket, push, geolocalização,
-upload de imagens, observabilidade), avaliar com o usuário: (a) promover `dev` para `main` pela
-primeira vez (dívida técnica registrada acima) antes do primeiro deploy real no Railway; (b)
-executar de fato o primeiro deploy no Railway (criar o projeto, addon de Postgres, variáveis de
-ambiente) — passos documentados no README.md "Deploy", mas não executados nesta sessão por
-exigirem uma conta/credenciais que este ambiente não tem.
+Fases 1 a 12 concluídas. Fase 13 (`roadmap.md` §19 — geolocalização real + notificações push)
+está **registrada, mas bloqueada** até a Fase 13 do front terminar — não escrever código dela
+antes disso (risco de retrabalho sobre um contrato de API que o front ainda vai atravessar de
+ponta a ponta pela primeira vez).
+
+O que **não** está bloqueado e pode avançar em paralelo, independente do front:
+(a) promover `dev` para `main` pela primeira vez (dívida técnica registrada acima) antes do
+primeiro deploy real no Railway; (b) executar de fato o primeiro deploy no Railway (criar o
+projeto, addon de Postgres, variáveis de ambiente) — passos documentados no README.md "Deploy",
+mas não executados ainda por exigirem uma conta/credenciais que este ambiente não tem.
+
+Fora isso, **não há tarefa de código pendente no back neste momento** — instrução explícita do
+usuário nesta sessão foi parar de tocar no front e focar aqui, mas o próprio trabalho real da
+Fase 13 depende do front avançar primeiro. Ver "Checkpointer" abaixo para o estado exato.
 
 ## Notas
 
