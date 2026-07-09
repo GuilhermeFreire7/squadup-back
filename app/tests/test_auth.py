@@ -173,6 +173,55 @@ def test_logout_rejects_unknown_token(client: TestClient) -> None:
     assert response.json()["detail"]["code"] == "INVALID_REFRESH_TOKEN"
 
 
+def test_logout_all_revokes_every_active_refresh_token(client: TestClient) -> None:
+    tokens = _login(client)
+    second_login = client.post(
+        "/auth/login",
+        json={"email": VALID_PAYLOAD["email"], "password": VALID_PAYLOAD["password"]},
+    ).json()
+
+    response = client.post(
+        "/auth/logout-all",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert response.status_code == 204
+
+    first_refresh = client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    second_refresh = client.post(
+        "/auth/refresh", json={"refresh_token": second_login["refresh_token"]}
+    )
+
+    assert first_refresh.status_code == 401
+    assert second_refresh.status_code == 401
+
+
+def test_logout_all_rejects_missing_token(client: TestClient) -> None:
+    response = client.post("/auth/logout-all")
+
+    assert response.status_code == 401
+
+
+def test_logout_all_does_not_affect_other_users_tokens(client: TestClient) -> None:
+    tokens = _login(client)
+    other_payload = {**VALID_PAYLOAD, "email": "other@example.com"}
+    client.post("/auth/register", json=other_payload)
+    other_tokens = client.post(
+        "/auth/login",
+        json={"email": other_payload["email"], "password": other_payload["password"]},
+    ).json()
+
+    response = client.post(
+        "/auth/logout-all",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert response.status_code == 204
+
+    other_refresh = client.post(
+        "/auth/refresh", json={"refresh_token": other_tokens["refresh_token"]}
+    )
+    assert other_refresh.status_code == 200
+
+
 def test_me_rejects_token_without_subject(client: TestClient) -> None:
     settings = get_settings()
     token = jwt.encode({"foo": "bar"}, settings.secret_key, algorithm=ALGORITHM)

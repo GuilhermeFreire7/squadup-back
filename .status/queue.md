@@ -4,18 +4,17 @@
 
 ## Em andamento
 
-_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Fase 12 (Refinamentos de contrato): D-B, D-C, D-D (decisões de contrato) e os itens 1, 3 e 5 de infraestrutura concluídos — ver `progress.md`, seção "Fase 12". Restam só os itens 2 (hospedagem), 4 (logout de todos os dispositivos) e 6 (commit/PR final) da tabela abaixo._
+_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Fase 12 (Refinamentos de contrato): D-B, D-C, D-D (decisões de contrato) e os itens 1, 3, 5 e 6 concluídos — `feature/fase-12-contrato` mergeada em `dev` via PR #31. Itens 2 e 4 (últimos da Fase 11/12) resolvidos na branch `feature/fase-12-infra-final` (cortada de `dev` em 2026-07-08): hospedagem decidida (Railway) com `Procfile`/driver Postgres/documentação de deploy prontos, e `POST /auth/logout-all` implementado para logout de todos os dispositivos. Ainda **sem commit/push/PR** desta branch — ver "Checkpointer" abaixo._
 
 ## Bloqueios
 
-- Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11/12 — Railway/Render/Fly.io) ainda sem escolha.
+- Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev, **PostgreSQL via `psycopg`** em produção. Hospedagem decidida: **Railway** (Postgres gerenciado nativo, deploy automático via GitHub, custo compatível com MVP — ver README.md "Deploy" para o racional completo e alternativas consideradas).
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 - **Ambiente de trabalho:** o repositório do front está em `c:\Users\Public\workspace-personal\squadup-app`, não em `../front` como `roadmap.md`/`vision.md` referenciam — ajustar essas referências relativas se os documentos forem revisados novamente, para não confundir sessões futuras.
 
 ## Dívidas técnicas conhecidas
 
 - **`main` está atrasada em relação a `dev`** desde a Fase 1 — nenhuma fase ainda foi promovida para `main`. Reavaliar quando/se isso importa (ex.: antes do primeiro deploy real).
-- **Sem endpoint de "logout de todos os dispositivos"** (identificada na Fase 11, ainda pendente — item 4 da tabela abaixo) — `POST /auth/logout` revoga um único refresh token por vez; não há como um usuário invalidar todas as sessões ativas de uma vez (ex.: em caso de suspeita de conta comprometida). Avaliar se o front precisa disso antes de considerar a Fase 12 encerrada.
 
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
@@ -47,24 +46,42 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - **Fechamento de partida é a única transição manual de `status`** — diferente de `open`/`full` (sempre recalculados por `_sync_match_status` a partir da contagem de `Participant.status == confirmed`, lição da Fase 7), `closed` via `POST /matches/{id}/close` é setado diretamente pelo serviço porque não há como derivá-lo de nenhuma contagem — é uma decisão do organizador, não um estado calculável. Não confundir esse caso com a regra "nunca campo solto": aqui não há duplicação de fonte de verdade, só não há fonte derivável.
 - **Migration gerada por `alembic revision --autogenerate` não segue o estilo do projeto por padrão** — o `alembic/script.py.mako` ainda usava `typing.Union`/`typing.Sequence` (padrão antigo do template do Alembic) em vez do estilo `X | Y` já usado na migration inicial (`70043fe6862c`) e exigido pelo resto do código (`ruff`/`black`). Corrigido o template para gerar já no formato certo; revisar/rodar `black`+`ruff` em qualquer migration nova mesmo assim, pois o autogenerate não formata o SQL gerado (linhas longas em `op.create_index`, por exemplo).
 
-## Próxima tarefa — Fase 12: itens restantes
+## Próxima tarefa — Fase 12: encerramento
 
-> As três decisões de contrato (D-B, D-C, D-D) e os itens 1, 3 e 5 de infraestrutura já estão
-> concluídos e implementados — ver `progress.md` §"Fase 12" para o detalhe de cada um. Restam
-> só os 3 itens abaixo para a Fase 12 (e a Fase 11, que compartilha esses pendentes) serem
-> formalmente encerradas. Contexto completo em `roadmap.md` §18 e
-> `../squadup-app/.status/backend-contract.md` §6 (repositório do front neste ambiente é
-> `squadup-app`, não `../front`).
-> **Bloqueia a Fase 13 do front** (`../squadup-app/.status/roadmap.md` §19): os tipos/adapters
-> de lá serão desenhados a partir do contrato que sair desta fase.
+> Todos os 6 itens da Fase 12 estão concluídos (ver `progress.md` §"Fase 12" para o detalhe de
+> cada um). Contexto completo em `roadmap.md` §18 e `../squadup-app/.status/backend-contract.md`
+> §6 (repositório do front neste ambiente é `squadup-app`, não `../front`).
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 2 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | ⚪ |
-| 4 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | ⚪ |
-| 6 | Commitar e abrir PR de `feature/fase-12-contrato` para `dev` quando o usuário pedir | ⚪ |
+| 1 | `cors_origins` configurável via `CORS_ORIGINS` | 🟢 Concluído |
+| 2 | Decidir hospedagem — **Railway** (Postgres gerenciado, deploy via GitHub) | 🟢 Concluído |
+| 3 | Rotina de purge de `refresh_tokens` expirados/revogados no startup | 🟢 Concluído |
+| 4 | `POST /auth/logout-all` (logout de todos os dispositivos) | 🟢 Concluído |
+| 5 | `/openapi.json` regenerado e validado contra o front | 🟢 Concluído |
+| 6 | Commitar e abrir PR de `feature/fase-12-contrato` para `dev` | 🟢 Concluído (PR #31, mergeado) |
 
-Itens 1, 3 e 5 concluídos nesta sessão (22) — ver detalhe completo em `progress.md`.
+Itens 2 e 4 (últimos pendentes) implementados na branch `feature/fase-12-infra-final`
+(cortada de `dev`) nesta sessão: driver `psycopg` + `Procfile` + seção "Deploy" no README.md
+para o item 2; `revoke_all_refresh_tokens` (`app/services/auth_service.py`) + `POST
+/auth/logout-all` (`app/routers/auth.py`) para o item 4, com 3 testes novos em
+`app/tests/test_auth.py`. Gate completo verde (`pytest` 113 testes/99.11%, `ruff`, `black`,
+`mypy` strict, `bandit`, `alembic check`) e validado manualmente com `uvicorn` local
+(`/health` 200, `/auth/logout-all` presente no `/openapi.json`).
+
+**Com isso, a Fase 12 (e a Fase 11, que compartilhava os pendentes) está formalmente encerrada**
+assim que esta branch for commitada — sinal verde para o front iniciar sua Fase 13
+(`../squadup-app/.status/roadmap.md` §19).
+
+## Próximo passo sugerido
+
+Nenhuma tarefa nova do roadmap está em aberto no momento — Fases 1 a 12 concluídas. Antes de
+seguir para itens de "Próxima evolução" (`roadmap.md` §17: WebSocket, push, geolocalização,
+upload de imagens, observabilidade), avaliar com o usuário: (a) promover `dev` para `main` pela
+primeira vez (dívida técnica registrada acima) antes do primeiro deploy real no Railway; (b)
+executar de fato o primeiro deploy no Railway (criar o projeto, addon de Postgres, variáveis de
+ambiente) — passos documentados no README.md "Deploy", mas não executados nesta sessão por
+exigirem uma conta/credenciais que este ambiente não tem.
 
 ## Notas
 
@@ -82,9 +99,24 @@ Itens 1, 3 e 5 concluídos nesta sessão (22) — ver detalhe completo em `progr
 
 ## Checkpointer — retomar aqui na próxima sessão
 
-**Não há bug em aberto.** Sessão 22 encerrada com os itens 1, 3 e 5 da Fase 12 implementados, validados e **commitados**. Estado exato para retomar:
+**Não há bug em aberto.** Sessão atual (2026-07-08): confirmado que `feature/fase-12-contrato`
+já estava mergeada em `dev` via PR #31 (checkpointer da sessão anterior estava desatualizado
+nesse ponto — corrigido). Implementados os 2 últimos itens pendentes da Fase 11/12 (itens 2 e
+4) na branch nova `feature/fase-12-infra-final`. Estado exato para retomar:
 
-- **Branch atual:** `feature/fase-12-contrato` (cortada de `dev`). Working tree limpo, nada pendente de commit. **Sem push feito e sem PR aberto** — não solicitado nesta sessão (item 6 continua pendente; só push/PR quando pedido explicitamente).
+- **Branch atual:** `feature/fase-12-infra-final` (cortada de `dev`). Ver histórico de commits
+  com `git log --oneline -5` para os hashes reais.
+- **Mudanças desta sessão:** `app/services/auth_service.py` (`revoke_all_refresh_tokens`),
+  `app/routers/auth.py` (`POST /auth/logout-all`), `app/tests/test_auth.py` (3 testes novos),
+  `requirements.txt` (`psycopg[binary]`), `Procfile` (novo), `.env.example` (exemplo de
+  `DATABASE_URL` Postgres), `README.md` (seção "Deploy" + doc do `logout-all`), `.status/queue.md`.
+- **Gate completo verde:** `pytest` (113 testes, 99.11% cobertura), `ruff check`, `black --check`,
+  `mypy app` (strict), `bandit`, `pip-audit` (sem CVEs no `psycopg` novo), `alembic check`.
+  Validado manualmente com `uvicorn` local: `/health` 200, `/auth/logout-all` presente no
+  `/openapi.json`.
+- **Próximo passo concreto:** commitar esta branch (sem push/PR — só quando o usuário pedir,
+  mesmo padrão das sessões anteriores). Depois disso, a Fase 12 está 100% encerrada; ver "Próximo
+  passo sugerido" acima para o que vem depois (promoção de `main`, primeiro deploy real).
 - **Commits desta sessão (22), em ordem:**
   1. `41ce68e` — docs: confirma item 5 (openapi.json regenerado e validado contra o front).
   2. `4e6c1f1` — feat: torna `cors_origins` configurável via `CORS_ORIGINS` no `.env` (item 1).

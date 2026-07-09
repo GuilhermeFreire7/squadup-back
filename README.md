@@ -56,6 +56,7 @@ JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 - `GET /auth/me` — retorna o usuário autenticado a partir do header `Authorization: Bearer <token>`.
 - `POST /auth/refresh` — troca um `refresh_token` válido por um novo par `{ access_token, refresh_token }` (rotação: o refresh token usado é revogado); `401 INVALID_REFRESH_TOKEN` se estiver inválido, expirado, revogado ou já utilizado.
 - `POST /auth/logout` — revoga um `refresh_token`, encerrando a sessão correspondente; `204` em caso de sucesso, `401 INVALID_REFRESH_TOKEN` se o token já não for válido.
+- `POST /auth/logout-all` — revoga **todos** os refresh tokens ativos do usuário autenticado (`Authorization: Bearer <token>`), encerrando todas as sessões de uma vez (ex.: suspeita de dispositivo comprometido); `204` em caso de sucesso.
 
 A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
 
@@ -133,6 +134,31 @@ pip-audit -r requirements.txt                              # vulnerabilidades em
 ```
 
 Todas essas checagens (qualidade + segurança) também rodam automaticamente em CI a cada push/PR — ver [`.github/workflows/`](.github/workflows/).
+
+## Deploy
+
+**Hospedagem decidida: [Railway](https://railway.app/).** Motivos: Postgres gerenciado nativo
+(um addon, sem provisionar infraestrutura separada), deploy automático a partir do GitHub
+(mesmo fluxo de PR/branch já usado no CI), variáveis de ambiente via painel (mesmo modelo do
+`pydantic-settings` já usado aqui) e custo compatível com o estágio de MVP. Alternativas
+consideradas: Render (equivalente, mas Postgres é um serviço separado a mais para configurar) e
+Fly.io (mais controle e edge global, mas exige Dockerfile/`flyctl`/volumes — complexidade que
+não se paga nesta etapa).
+
+Passos para o primeiro deploy:
+
+1. Criar um projeto no Railway a partir deste repositório GitHub (branch `dev` ou `main`,
+   conforme decidido na hora do deploy) e adicionar um addon **PostgreSQL**.
+2. Definir as variáveis de ambiente do serviço da API: `SECRET_KEY` (valor aleatório forte, não
+   o placeholder de dev), `ENVIRONMENT=production`, `CORS_ORIGINS` com a URL real do app
+   publicado (Expo/EAS). `DATABASE_URL` é injetada automaticamente pelo addon de Postgres no
+   formato `postgresql://...` — trocar o prefixo para `postgresql+psycopg://` para usar o
+   driver `psycopg` (já em `requirements.txt`).
+3. O `Procfile` (`alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`) é
+   detectado automaticamente pelo Nixpacks do Railway — a cada deploy, as migrations pendentes
+   são aplicadas antes do servidor subir.
+4. Rodar `python -m app.seed` manualmente (via Railway CLI/shell) apenas se for necessário um
+   banco de produção com dados de exemplo — não faz parte do fluxo automático de deploy.
 
 ## Modelo de dados
 
