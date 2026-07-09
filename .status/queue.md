@@ -113,20 +113,38 @@ Fase 13 depende do front avançar primeiro. Ver "Checkpointer" abaixo para o est
 
 ## Checkpointer — retomar aqui na próxima sessão
 
-**Não há bug em aberto. Fase 11 e 12 100% concluídas.** Estado exato para retomar:
+**Não há bug em aberto. Fases 1 a 12 100% concluídas. Fase 13 registrada, mas bloqueada
+(não é para começar a implementar).** Estado exato para retomar:
 
 - **Branch atual:** `feature/fase-12-infra-final` (cortada de `dev`), **commitada, sem
-  push/PR** (só quando o usuário pedir). 3 commits, nesta ordem:
-  1. `d79cbe5` — feat: adiciona `POST /auth/logout-all` (item 4).
-  2. `edd0761` — feat: decide hospedagem (Railway) e prepara deploy de produção (item 2).
+  push/PR** (só quando o usuário pedir — a última vez que o branch foi sincronizado com o
+  remoto foi manualmente pelo usuário, não por mim). 4 commits, nesta ordem:
+  1. `d79cbe5` — feat: adiciona `POST /auth/logout-all` (Fase 12, item 4).
+  2. `edd0761` — feat: decide hospedagem (Railway) e prepara deploy de produção (Fase 12, item 2).
   3. `cd272e9` — docs: sincroniza `.status/` e encerra formalmente a Fase 11/12.
-- **Gate completo verde:** `pytest` (113 testes, 99.11% cobertura), `ruff check`, `black --check`,
-  `mypy app` (strict), `bandit`, `pip-audit` (sem CVEs no `psycopg` novo), `alembic check`.
-  Validado manualmente com `uvicorn` local: `/health` 200, `/auth/logout-all` presente no
-  `/openapi.json`.
-- **Item 1 (CORS, commit `4e6c1f1`):** `app/core/config.py` — `cors_origins: Annotated[list[str], NoDecode]` + `_split_cors_origins` (`field_validator(mode="before")`); `DEFAULT_CORS_ORIGINS` extraído como constante do módulo. `.env.example` e `README.md` (seção "CORS") documentados. Novo `app/tests/test_config.py`.
-- **Item 3 (purge de refresh tokens, commit `041ef5a`):** `app/services/auth_service.py::purge_expired_refresh_tokens` (usa `sqlmodel.col(RefreshToken.revoked).is_(True) | (RefreshToken.expires_at < utc_now_naive())`) chamada em `app/main.py` dentro do `lifespan`, logo após `create_db_and_tables()`.
-- **Item 5 (openapi.json validado contra o front):** confirmado nesta sessão que `RatingRead.rated_user`/`match` e `ReportRead.match` batem com D-B/D-C no schema real. **Correção:** um checkpointer anterior afirmava ter commitado uma nota sobre isso em `squadup-app/.status/backend-contract.md` como `b149c96` — esse commit **não existe** no histórico real de `../front` (verificado com `git -C ../front cat-file -e b149c96`, resultado: não encontrado). Provavelmente uma alucinação de sessão anterior; desconsiderar. Esta sessão (2026-07-08) fez a sincronização real: leu `../front/.status/{backend-contract,queue,roadmap}.md` e atualizou os três diretamente (D-B/D-C/D-D marcados como resolvidos, `POST /auth/logout-all` documentado, gate de "Etapa 1" removido) — **essas edições estão no working tree de `../front` (branch `dev` lá), ainda não commitadas** nesse repositório; não commitei lá por ser um repositório separado, sem pedido explícito do usuário para isso.
-- **Item 2 (hospedagem) e item 4 (logout-all):** ver commits `edd0761`/`d79cbe5` acima e a seção "Itens finais da Fase 11/12" em `progress.md`.
-- **Próximo passo sugerido:** ver seção "Próximo passo sugerido" acima (promoção de `main`, primeiro deploy real no Railway). Separadamente, perguntar ao usuário se as edições pendentes em `../front/.status/` devem ser commitadas naquele repositório.
-- **Nada bloqueado.**
+  4. `b825601` — docs: corrige referências incorretas ao repositório do front no checkpointer.
+  5. `974786f` — docs: registra a Fase 13 (geolocalização real e notificações push).
+- **Gate completo verde** (validado até o commit 4; nenhum código de produto mudou no commit 5,
+  só docs): `pytest` (113 testes, 99.11% cobertura), `ruff check`, `black --check`, `mypy app`
+  (strict), `bandit`, `pip-audit`, `alembic check`. Validado manualmente com `uvicorn` local.
+- **Fase 13 (`roadmap.md` §19) — o que muda a partir de agora:** geolocalização real e
+  notificações push deixaram de ser "fora do escopo" — o usuário confirmou que sempre fizeram
+  parte do plano do produto e serão implementadas de fato. Registrada com decisões de design
+  (fonte das coordenadas, raio de busca, provedor de push via Expo Push API, eventos que
+  disparam notificação) e tarefas detalhadas em `roadmap.md` §19.1/§19.2. **Bloqueada até a
+  Fase 13 do front (integração real com esta API) terminar** — o front hoje ainda é 100%
+  mockado (`../front/.status/plano-de-entrega.md`). Instrução explícita do usuário nesta
+  sessão: parar de tocar no repositório do front por ora e manter o foco de trabalho aqui —
+  mas como o próprio trabalho de código da Fase 13 depende do front avançar primeiro, **não há
+  nenhuma tarefa de implementação a fazer no back neste momento**, só a documentação já feita.
+- **Estado do front (para contexto, não é responsabilidade desta sessão):** `../front` está com
+  `.status/backend-contract.md`, `queue.md`, `roadmap.md` e `plano-de-entrega.md` (novo) editados
+  no working tree da branch `dev` de lá, ainda **não commitados** — deixado assim
+  deliberadamente, é um repositório separado e o usuário instruiu a não continuar editando lá
+  por ora. Também já foi criada a estrutura `front/tcc/` (TCC.tex, references.bib, assets/logo.png,
+  assets/concorrentes/*) pelo próprio usuário, com os caminhos do `.tex` já ajustados nesta sessão.
+- **Próximo passo sugerido:** ver seção "Próximo passo sugerido" acima — só os itens não
+  bloqueados (promoção de `main`, primeiro deploy real no Railway) podem avançar agora; o resto
+  espera o front.
+- **Nada bloqueado no sentido de "trabalho parado por erro"** — só a ordem de dependência entre
+  repositórios definida pelo próprio usuário.
