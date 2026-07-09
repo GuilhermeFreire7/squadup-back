@@ -30,6 +30,14 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+### CORS
+
+Os origins liberados vêm de `CORS_ORIGINS` (`.env`), lista separada por vírgula. Se a
+variável não for definida, a API usa os defaults de desenvolvimento (`localhost:8081`,
+`localhost:19006`, `exp://localhost:19000` — ver `app/core/config.py::DEFAULT_CORS_ORIGINS`).
+Em produção, definir `CORS_ORIGINS` com a URL real do app publicado (Expo/EAS) assim que
+existir.
+
 ## Rodando a aplicação
 
 ```bash
@@ -52,6 +60,10 @@ JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
 
 O `access_token` tem vida curta (`access_token_expire_minutes`, padrão 24h); o `refresh_token` é um valor aleatório opaco (`secrets.token_urlsafe`), armazenado apenas como hash SHA-256 na tabela `refresh_tokens` (`token_hash`), com vida longa (`refresh_token_expire_days`, padrão 30 dias) e rotação a cada uso — o token anterior é sempre marcado como `revoked` ao ser trocado por um novo par, então reutilizar um refresh token já trocado ou revogado retorna `401 INVALID_REFRESH_TOKEN`.
+
+Linhas expiradas ou revogadas de `refresh_tokens` são removidas automaticamente a cada
+inicialização da API (`purge_expired_refresh_tokens`, chamado no `lifespan` de `app/main.py`) —
+evita que a tabela cresça indefinidamente sem exigir infraestrutura de scheduler dedicada.
 
 ## Perfil de usuário
 

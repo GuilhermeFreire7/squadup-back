@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.config import get_settings
 from app.core.security import (
@@ -109,3 +109,16 @@ def revoke_refresh_token(session: Session, refresh_token: str) -> None:
     stored.revoked = True
     session.add(stored)
     session.commit()
+
+
+def purge_expired_refresh_tokens(session: Session) -> int:
+    """Remove refresh tokens expirados ou revogados. Retorna quantas linhas foram removidas."""
+    stale_tokens = session.exec(
+        select(RefreshToken).where(
+            col(RefreshToken.revoked).is_(True) | (RefreshToken.expires_at < utc_now_naive())
+        )
+    ).all()
+    for token in stale_tokens:
+        session.delete(token)
+    session.commit()
+    return len(stale_tokens)

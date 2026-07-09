@@ -4,19 +4,18 @@
 
 ## Em andamento
 
-_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes (99.07%) e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Itens de infraestrutura que sobraram (CORS/produção, hospedagem) migraram para a tabela da Fase 12 abaixo, já que ambas as fases fecham juntas antes da integração com o front. Fase 12 (Refinamentos de contrato): D-B, D-C e D-D concluídos nesta sessão (21) — ver `progress.md`. Restam só os itens de infraestrutura (CORS/produção, hospedagem, purge de `refresh_tokens`, logout de todos os dispositivos) e regenerar/confirmar o `/openapi.json` com o front._
+_Fase 11 (Hardening e integração final) com o essencial concluído: refresh token com rotação, `POST /matches/{id}/close`, cobertura de testes e documentação OpenAPI — tudo mergeado em `dev` (PRs #27 e #28). Fase 12 (Refinamentos de contrato): D-B, D-C, D-D (decisões de contrato) e os itens 1, 3 e 5 de infraestrutura concluídos — ver `progress.md`, seção "Fase 12". Restam só os itens 2 (hospedagem), 4 (logout de todos os dispositivos) e 6 (commit/PR final) da tabela abaixo._
 
 ## Bloqueios
 
-- Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11 — Railway/Render/Fly.io) ainda sem escolha.
+- Nenhum bloqueio técnico conhecido. Decisões de stack da Fase 1 já tomadas: `venv` + `requirements.txt`, **SQLModel**, **SQLite** em dev. Hospedagem de deploy (Fase 11/12 — Railway/Render/Fly.io) ainda sem escolha.
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
+- **Ambiente de trabalho:** o repositório do front está em `c:\Users\Public\workspace-personal\squadup-app`, não em `../front` como `roadmap.md`/`vision.md` referenciam — ajustar essas referências relativas se os documentos forem revisados novamente, para não confundir sessões futuras.
 
 ## Dívidas técnicas conhecidas
 
-- **`main` está atrasada em relação a `dev`** desde a Fase 1 — nenhuma fase ainda foi promovida para `main`. Reavaliar quando/se isso importa (ex.: antes do primeiro deploy real na Fase 11).
-- **`refresh_tokens` sem rotina de limpeza** (nova, identificada na Fase 11) — linhas revogadas/expiradas nunca são removidas da tabela; ela cresce indefinidamente a cada login/refresh. Sem impacto funcional hoje (a busca é por `token_hash` indexado, não full scan), mas vale uma rotina de purge (ex.: BackgroundTask periódica ou job externo deletando `expires_at < now() OR revoked = true` com alguma margem) antes do primeiro deploy real com tráfego contínuo.
-- **Sem endpoint de "logout de todos os dispositivos"** (nova, identificada na Fase 11) — `POST /auth/logout` revoga um único refresh token por vez; não há como um usuário invalidar todas as sessões ativas de uma vez (ex.: em caso de suspeita de conta comprometida). Avaliar se o front precisa disso antes de considerar a Fase 11 encerrada.
-- **D-C e D-D (Fase 12) foram implementados sem uma rodada formal de alinhamento com o front** (nova, identificada na sessão 21) — o `roadmap.md` §18 previa "decidir com o front" antes de codar; nesta sessão a aprovação foi assumida a partir da instrução direta do usuário para prosseguir com a implementação. O contrato resultante (`MatchRef` em `RatingRead`/`ReportRead`, mensagem de sistema automática) é razoável e documentado, mas ainda não foi confirmado contra `../front/.status/backend-contract.md`. Fazer essa confirmação antes de considerar a Fase 12 100% encerrada (item 5 da tabela abaixo).
+- **`main` está atrasada em relação a `dev`** desde a Fase 1 — nenhuma fase ainda foi promovida para `main`. Reavaliar quando/se isso importa (ex.: antes do primeiro deploy real).
+- **Sem endpoint de "logout de todos os dispositivos"** (identificada na Fase 11, ainda pendente — item 4 da tabela abaixo) — `POST /auth/logout` revoga um único refresh token por vez; não há como um usuário invalidar todas as sessões ativas de uma vez (ex.: em caso de suspeita de conta comprometida). Avaliar se o front precisa disso antes de considerar a Fase 12 encerrada.
 
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
@@ -48,23 +47,24 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - **Fechamento de partida é a única transição manual de `status`** — diferente de `open`/`full` (sempre recalculados por `_sync_match_status` a partir da contagem de `Participant.status == confirmed`, lição da Fase 7), `closed` via `POST /matches/{id}/close` é setado diretamente pelo serviço porque não há como derivá-lo de nenhuma contagem — é uma decisão do organizador, não um estado calculável. Não confundir esse caso com a regra "nunca campo solto": aqui não há duplicação de fonte de verdade, só não há fonte derivável.
 - **Migration gerada por `alembic revision --autogenerate` não segue o estilo do projeto por padrão** — o `alembic/script.py.mako` ainda usava `typing.Union`/`typing.Sequence` (padrão antigo do template do Alembic) em vez do estilo `X | Y` já usado na migration inicial (`70043fe6862c`) e exigido pelo resto do código (`ruff`/`black`). Corrigido o template para gerar já no formato certo; revisar/rodar `black`+`ruff` em qualquer migration nova mesmo assim, pois o autogenerate não formata o SQL gerado (linhas longas em `op.create_index`, por exemplo).
 
-## Próxima tarefa — Fase 12: itens de infraestrutura restantes
+## Próxima tarefa — Fase 12: itens restantes
 
-> As três decisões de contrato (D-B, D-C, D-D) já estão concluídas e implementadas — ver
-> `progress.md` §"Fase 12" para o detalhe de cada uma. Falta só o bloco de infraestrutura abaixo
-> para a Fase 12 (e a Fase 11, que compartilha esses pendentes) serem formalmente encerradas.
-> Contexto completo em `roadmap.md` §18 e `../front/.status/backend-contract.md` §6.
-> **Bloqueia a Fase 13 do front** (`../front/.status/roadmap.md` §19): os tipos/adapters de lá
-> serão desenhados a partir do contrato que sair desta fase.
+> As três decisões de contrato (D-B, D-C, D-D) e os itens 1, 3 e 5 de infraestrutura já estão
+> concluídos e implementados — ver `progress.md` §"Fase 12" para o detalhe de cada um. Restam
+> só os 3 itens abaixo para a Fase 12 (e a Fase 11, que compartilha esses pendentes) serem
+> formalmente encerradas. Contexto completo em `roadmap.md` §18 e
+> `../squadup-app/.status/backend-contract.md` §6 (repositório do front neste ambiente é
+> `squadup-app`, não `../front`).
+> **Bloqueia a Fase 13 do front** (`../squadup-app/.status/roadmap.md` §19): os tipos/adapters
+> de lá serão desenhados a partir do contrato que sair desta fase.
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 1 | Configurar CORS/variáveis de ambiente de produção (`app/core/config.py::cors_origins`) — item já pendente da Fase 11 | ⚪ |
 | 2 | Decidir hospedagem (Railway/Render/Fly.io) — item já pendente da Fase 11 | ⚪ |
-| 3 | Rotina de purge de `refresh_tokens` expirados/revogados — dívida técnica já registrada acima | ⚪ |
 | 4 | Avaliar necessidade de "logout de todos os dispositivos" — dívida técnica já registrada acima | ⚪ |
-| 5 | Regenerar `/openapi.json` após as mudanças de D-C/D-D e confirmar com o front que bate com `backend-contract.md` | ⚪ |
-| 6 | Commitar e abrir PR de `feature/fase-12-contrato` para `dev` depois que o usuário revisar o diff (ainda não commitado nesta sessão) | ⚪ |
+| 6 | Commitar e abrir PR de `feature/fase-12-contrato` para `dev` quando o usuário pedir | ⚪ |
+
+Itens 1, 3 e 5 concluídos nesta sessão (22) — ver detalhe completo em `progress.md`.
 
 ## Notas
 
@@ -74,16 +74,24 @@ _Fase 11 (Hardening e integração final) com o essencial concluído: refresh to
 - `app.core.dependencies.get_current_user` (criada na Fase 3) é a dependency padrão para exigir autenticação em qualquer router novo — usar `Depends(get_current_user)` em vez de reimplementar decodificação de JWT.
 - Regra `B008` do `ruff` está no ignore list (`pyproject.toml`) por causa do idiom `Depends(...)` do FastAPI — não reverter isso achando que é lint solto.
 
+## Lições da sessão 22 (aplicar ao revisar código futuro)
+
+- **`pydantic-settings` decodifica campos complexos (`list[str]`) como JSON antes de qualquer `field_validator` rodar** — um `CORS_ORIGINS=a,b,c` no `.env` quebra com `SettingsError`/`JSONDecodeError` a menos que o campo seja anotado com `Annotated[list[str], NoDecode]` (`pydantic_settings.NoDecode`), que desliga esse parsing automático e deixa o `field_validator(mode="before")` fazer o split manual. Usar esse padrão para qualquer settings futura que precise de uma lista vinda de env var como string separada por vírgula.
+- **`mypy` (strict) não aceita `Coluna == True`/`Coluna.is_(True)` em atributos `bool` do SQLModel** — o SQLModel tipa o atributo estaticamente como `bool` do Python, não como `InstrumentedAttribute`, então `.is_()` não existe nesse tipo aos olhos do mypy. Usar `sqlmodel.col(Model.campo).is_(True)` para sinalizar explicitamente que é uma coluna SQLAlchemy. Ao combinar com `|` (or bitwise) em `where()`, colocar a expressão `col(...).is_(...)` primeiro no `|` — `bool_column < valor | col(...).is_(True)` com a comparação primeiro faz o mypy tentar resolver via `bool.__or__` e falha (`No overload variant of "__or__" of "bool"`).
+- **Rotina de purge sem scheduler dedicado:** para o volume esperado do MVP, purge de linhas obsoletas (`refresh_tokens` expirados/revogados) rodando uma vez por inicialização da API, dentro do `lifespan` (mesmo padrão de `create_db_and_tables()`), é suficiente — não é necessário introduzir Celery/cron externo só para isso. Reavaliar só se o padrão de deploy (várias réplicas subindo/descendo com frequência, sem período de baixo tráfego) tornar o purge-no-startup ineficaz.
+
 ## Checkpointer — retomar aqui na próxima sessão
 
-**Não há bug em aberto.** Sessão 21 encerrada com D-C e D-D implementados, validados e **commitados**. Estado exato para retomar:
+**Não há bug em aberto.** Sessão 22 encerrada com os itens 1, 3 e 5 da Fase 12 implementados, validados e **commitados**. Estado exato para retomar:
 
-- **Branch atual:** `feature/fase-12-contrato` (cortada de `dev`), commit `005f02b` ("feat: expande MatchRef em RatingRead/ReportRead e emite mensagem de sistema na criação de partida (Fase 12, D-C/D-D)") — working tree limpo, nada pendente de commit. **Sem push feito e sem PR aberto** (não solicitado nesta sessão — só push/PR quando pedido explicitamente).
-- **O que está feito e verde nesta branch (D-C):** novo schema `MatchRef` (`id, title, sport, date`) em `app/schemas/match.py:10-16`. `RatingRead.match_id` → `RatingRead.match: MatchRef` (`app/schemas/rating.py:19`); `ReportRead.match_id` → `ReportRead.match: MatchRef | None` (`app/schemas/report.py:23`, opcional porque `Report.match_id` é FK nula). Populado em `rating_service.py::build_rating_read` (linha ~54) e `report_service.py::build_report_read` (linha ~43) via `MatchRef.model_validate(...)` a partir da relação `.match` já carregada, sem query extra. `alembic check` confirmou que não há divergência de model. Testes `test_ratings.py`/`test_reports.py` atualizados para checar `body["match"]["id"]`/`body["match"] is None`.
-- **O que está feito e verde nesta branch (D-D):** `app/services/match_service.py::create_match` (linha ~77) agora insere uma `Message(type=MessageType.SYSTEM, sender_id=organizer.id, text="Partida criada. Bem-vindos!")` logo após criar a partida (dois `commit()` sequenciais — a partida precisa existir primeiro pela FK `messages.match_id`). Organizador escolhido como `sender_id` porque `Message.sender_id` é FK obrigatória (não há "sem remetente" no model). Novo teste `test_create_match_emits_system_message` em `test_matches.py`.
-- **Gate completo verde no momento do commit:** `pytest` (106 testes, 99.08% cobertura), `ruff check`, `black --check`, `mypy app` (strict), `alembic check` — todos passando. Validado manualmente com `uvicorn` local: `/openapi.json` confirma `MatchRef` referenciado corretamente em `RatingRead.match`/`ReportRead.match`; fluxo real `POST /auth/register` → `POST /matches` → `GET /matches/{id}/messages` confirmou a mensagem de sistema sendo criada automaticamente; `GET /users/user-1/ratings` contra o seed confirmou `match` expandido.
-- **README.md atualizado** nas seções "Mensagens" (menção à mensagem de sistema automática), "Avaliação pós-partida" (`RatingRead.match` como `MatchRef`) e "Denúncia e moderação" (`ReportRead.match` como `MatchRef | null`).
-- **Ambiente local:** durante esta sessão, `alembic upgrade head` falhou porque a tabela `alembic_version` do `squadup.db` local estava vazia (inconsistência de sessão anterior, não relacionada ao código) — corrigido com `alembic stamp head` (banco já tinha todas as tabelas de `b4fcc804c2cd`, só faltava o carimbo de versão). Nenhum servidor de teste ficou rodando ao final (portas 8001/8002 liberadas).
-- **Dívida nova registrada:** D-C/D-D foram aprovados por instrução direta do usuário nesta sessão, sem uma rodada formal de confirmação com o front contra `../front/.status/backend-contract.md` — ver "Dívidas técnicas conhecidas" acima.
-- **Próximo passo concreto (não iniciado):** os 6 itens da tabela "Próxima tarefa" acima — nenhum tem dependência entre si, podem ser feitos em qualquer ordem. O mais imediato é o item 5 (regenerar `/openapi.json` e confirmar com o front) e o item 6 (decidir se este commit vai para PR/push agora ou se aguarda mais trabalho acumulado na branch).
+- **Branch atual:** `feature/fase-12-contrato` (cortada de `dev`). Working tree limpo, nada pendente de commit. **Sem push feito e sem PR aberto** — não solicitado nesta sessão (item 6 continua pendente; só push/PR quando pedido explicitamente).
+- **Commits desta sessão (22), em ordem:**
+  1. `41ce68e` — docs: confirma item 5 (openapi.json regenerado e validado contra o front).
+  2. `4e6c1f1` — feat: torna `cors_origins` configurável via `CORS_ORIGINS` no `.env` (item 1).
+  3. `feat: adiciona rotina de purge de refresh_tokens expirados/revogados no startup (Fase 12, item 3)` — inclui também a sincronização de `.status/queue.md`/`.status/progress.md` desta sessão (ver hash real com `git log --oneline -5`).
+- **Item 5 (concluído, commit `41ce68e`):** servidor local subido, `/openapi.json` regenerado e inspecionado; confirmado que `RatingRead.rated_user`/`match` e `ReportRead.match` batem com D-B/D-C. `squadup-app/.status/backend-contract.md` (repositório separado, branch `dev` lá) recebeu nota de topo confirmando o contrato — commitado lá como `b149c96`.
+- **Item 1 (concluído, commit `4e6c1f1`):** `app/core/config.py` — `cors_origins: Annotated[list[str], NoDecode]` + `_split_cors_origins` (`field_validator(mode="before")`); `DEFAULT_CORS_ORIGINS` extraído como constante do módulo. `.env.example` e `README.md` (seção "CORS") documentados. Novo `app/tests/test_config.py`.
+- **Item 3 (concluído, commit final desta sessão):** `app/services/auth_service.py::purge_expired_refresh_tokens` (usa `sqlmodel.col(RefreshToken.revoked).is_(True) | (RefreshToken.expires_at < utc_now_naive())`) chamada em `app/main.py` dentro do `lifespan`, logo após `create_db_and_tables()`. Dois testes novos em `app/tests/test_auth.py` (`test_purge_removes_expired_and_revoked_tokens`, `test_purge_is_noop_when_no_stale_tokens`) mais um helper `_make_user`. README.md ganhou um parágrafo sobre o purge automático na seção de autenticação.
+- **Gate completo verde no momento deste checkpointer:** `pytest` (110 testes, 99.10% cobertura), `ruff check`, `black --check`, `mypy app` (strict), `alembic check` (sem impacto de schema) — todos passando. Validado manualmente com `uvicorn` local: startup roda o purge sem erro em banco vazio.
+- **Próximo passo concreto:** restam só os itens 2 (decidir hospedagem — Railway/Render/Fly.io), 4 (avaliar "logout de todos os dispositivos") e 6 (commit/PR final de `feature/fase-12-contrato` para `dev`, só quando o usuário pedir) da tabela acima — nenhum tem dependência entre si.
 - **Nada bloqueado.**

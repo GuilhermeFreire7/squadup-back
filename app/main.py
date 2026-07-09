@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session
 
 from app.core.config import get_settings
-from app.core.database import create_db_and_tables
+from app.core.database import create_db_and_tables, engine
 from app.routers import auth, health, matches, messages, ratings, reports, users
+from app.services.auth_service import purge_expired_refresh_tokens
 
 settings = get_settings()
 
@@ -14,6 +16,8 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     create_db_and_tables()
+    with Session(engine) as session:
+        purge_expired_refresh_tokens(session)
     yield
 
 
