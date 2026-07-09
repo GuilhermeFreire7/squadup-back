@@ -263,7 +263,7 @@ O `/docs` gerado automaticamente só mostrava as respostas de sucesso (200/201/2
 
 `.env` criado a partir de `.env.example` com `SECRET_KEY` gerada via `secrets.token_urlsafe(48)` (arquivo não versionado, só local) — `DATABASE_URL` mantido `sqlite:///./squadup.db`. Dependências da `venv` já estavam satisfeitas (`pip install -r requirements.txt` sem reinstalação). `alembic upgrade head` confirmado em `b4fcc804c2cd (head)`, sem migration pendente. Seed (`python -m app.seed`) populou 7 usuários (incl. sistema), 13 partidas, mensagens, avaliações e denúncias. `uvicorn app.main:app` local validado: `GET /health` → 200 `{"status":"ok","environment":"development"}`, `GET /docs` → 200.
 
-## Fase 12 — Refinamentos de contrato para integração com o front (em andamento)
+## Fase 12 — Refinamentos de contrato para integração com o front (concluída)
 
 Ordem de execução (ver `roadmap.md` §18, tabela de decisões D-B/D-C/D-D):
 
@@ -293,4 +293,15 @@ Ordem de execução (ver `roadmap.md` §18, tabela de decisões D-B/D-C/D-D):
 
 **Resultado alcançado (itens 1, 3 e 5):** `pytest` (110 passed, 99.10% cobertura, era 106/99.08%), `ruff check`, `black --check`, `mypy app` (strict) e `alembic check` (sem impacto de schema) todos verdes. Validado manualmente com `uvicorn` local: startup roda o purge sem erro em banco vazio; `/openapi.json` conferido campo a campo contra `backend-contract.md`.
 
-**Restam da Fase 12 (ver `queue.md`):** item 2 (decidir hospedagem), item 4 (avaliar "logout de todos os dispositivos") e item 6 (commit/PR final da branch para `dev`, quando o usuário pedir).
+Item 6 (commit/PR final) concluído em sessão anterior: `feature/fase-12-contrato` mergeada em `dev` via PR #31.
+
+### Itens finais da Fase 11/12 (sessão atual, 2026-07-08)
+
+Branch `feature/fase-12-infra-final`, cortada de `dev`.
+
+1. [x] **Item 2 — decidir hospedagem:** **Railway** escolhida (Postgres gerenciado nativo via addon, deploy automático a partir do GitHub, custo compatível com o estágio de MVP). Alternativas descartadas: Render (Postgres como serviço separado, mais um passo de configuração) e Fly.io (exige Dockerfile/`flyctl`/volumes, complexidade que não se paga nesta etapa). Preparação de deploy: `psycopg[binary]>=3.2,<4.0` adicionado ao `requirements.txt` (driver Postgres — o código já era 100% agnóstico de banco via `DATABASE_URL`, sem mudança em `app/core/database.py`/`alembic/env.py`); `Procfile` novo (`alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`, detectado automaticamente pelo Nixpacks do Railway); `.env.example` com exemplo de `DATABASE_URL` Postgres; nova seção "Deploy" no `README.md` com o racional da escolha e o passo a passo. Nenhum deploy real foi executado — criar a conta/projeto no Railway e provisionar o Postgres fica para quando o usuário decidir seguir com o primeiro deploy.
+2. [x] **Item 4 — logout de todos os dispositivos:** nova função `app/services/auth_service.py::revoke_all_refresh_tokens(session, user_id)` (marca `revoked = True` em todos os refresh tokens ativos do usuário, retorna a contagem). Novo endpoint `POST /auth/logout-all` (`app/routers/auth.py`), autenticado via `Authorization: Bearer <access_token>` (não recebe `refresh_token` no corpo — revoga todos de uma vez, diferente de `POST /auth/logout`), retorna `204`. Três testes novos em `app/tests/test_auth.py`: revoga múltiplas sessões ativas, rejeita chamada sem token, e confirma que não afeta tokens de outro usuário.
+
+**Resultado alcançado (itens 2 e 4):** `pytest` (113 passed, 99.11% cobertura, era 110/99.10%), `ruff check`, `black --check`, `mypy app` (strict), `bandit` e `pip-audit` (sem CVEs no `psycopg` novo) todos verdes; `alembic check` confirma que a troca de driver não gera migration nova. Validado manualmente com `uvicorn` local: `GET /health` → 200; `/openapi.json` confirma `/auth/logout-all` registrado.
+
+**Fase 12 (e a Fase 11, que compartilhava esses pendentes) formalmente encerrada com isso** — todos os 6 itens da tabela de `queue.md` concluídos.
