@@ -11,6 +11,7 @@ from app.services.auth_service import (
     authenticate_user,
     refresh_tokens,
     register_user,
+    revoke_all_refresh_tokens,
     revoke_refresh_token,
 )
 
@@ -80,3 +81,18 @@ def refresh(payload: RefreshRequest, session: Session = Depends(get_session)) ->
 )
 def logout(payload: RefreshRequest, session: Session = Depends(get_session)) -> None:
     revoke_refresh_token(session, payload.refresh_token)
+
+
+@router.post(
+    "/logout-all",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Encerrar todas as sessões",
+    description="Revoga todos os refresh tokens ativos do usuário autenticado, encerrando "
+    "todas as sessões (ex.: em caso de suspeita de dispositivo comprometido).",
+    responses=error_responses(*AUTH_ERRORS),
+)
+def logout_all(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    revoke_all_refresh_tokens(session, current_user.id)

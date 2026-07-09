@@ -111,6 +111,21 @@ def revoke_refresh_token(session: Session, refresh_token: str) -> None:
     session.commit()
 
 
+def revoke_all_refresh_tokens(session: Session, user_id: str) -> int:
+    """Revoga todos os refresh tokens ativos de um usuário. Retorna quantos foram revogados."""
+    active_tokens = session.exec(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            col(RefreshToken.revoked).is_(False),
+        )
+    ).all()
+    for token in active_tokens:
+        token.revoked = True
+        session.add(token)
+    session.commit()
+    return len(active_tokens)
+
+
 def purge_expired_refresh_tokens(session: Session) -> int:
     """Remove refresh tokens expirados ou revogados. Retorna quantas linhas foram removidas."""
     stale_tokens = session.exec(
