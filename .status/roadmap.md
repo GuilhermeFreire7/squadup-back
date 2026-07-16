@@ -16,7 +16,7 @@
 | Fase 10 | Denúncia e moderação | 🟢 Concluída |
 | Fase 11 | Hardening e integração final com o front | 🟢 Concluída |
 | Fase 12 | Refinamentos de contrato para integração com o front | 🟢 Concluída |
-| Fase 13 | Geolocalização real e notificações push | ⚪ A fazer — bloqueada até a Fase 13 do front terminar |
+| Fase 13 | Geolocalização real e notificações push | ⚪ A fazer — **destravada em 2026-07-16** (Fase 13 do front concluída); plano consolidado em `../squadup-app/.status/backend-contract.md` §6-A e fila executável em `queue.md` |
 
 **Progresso geral:** 10/11 fases concluídas e mergeadas em `dev` · Fase 1 concluída e mergeada em `dev` (branch de trabalho principal; `main` ainda está atrasada) via `feature/fase-1-estrutura-inicial` (servidor FastAPI rodando, `/health` respondendo, SQLite conectado via SQLModel, Alembic configurado, `pytest`/`ruff`/`black` verdes). CI/CD (`feature/ci-pipelines`) também mergeado em `dev`. Fase 2 concluída e mergeada em `dev` (PR #18): models, migration inicial e seed espelhando o front. Fase 3 (Autenticação) concluída e mergeada em `dev` (PR #19, commit `a2366e0`): register/login/me com JWT. Fase 4 (Perfil de usuário) concluída e mergeada em `dev` (PR #20, commit `16b5915`): `GET/PATCH /users/me`, `GET /users/{id}` com métricas derivadas. Fase 5 (Partidas) concluída e mergeada em `dev` (PR #21, commit `72de758`): `GET /matches` com filtros, `GET /matches/{id}` com participantes e organizador expandidos. Fase 6 (Criação de partida) concluída e mergeada em `dev` (PR #22, commit `fff5490`): `POST /matches` com o usuário autenticado como organizador. Fase 7 (Participação em partida) concluída e mergeada em `dev` (PR #23, commit `95c13e2`): `POST /matches/{id}/join`, `POST /matches/{id}/leave`, `POST /matches/{id}/participants/{userId}/approve`, com `status` da partida recalculado automaticamente a partir da contagem de participantes confirmados. Fase 8 (Mensagens) concluída e mergeada em `dev` (PR #24, commit `25ff076`): `GET/POST /matches/{id}/messages`, restritos ao organizador ou a participantes confirmados. Fase 9 (Avaliação pós-partida) concluída e mergeada em `dev` (PR #25, commit `ffccd58`): `POST /matches/{id}/ratings/{userId}`, `GET /users/{id}/ratings`, com validação de `match.status == closed` e ambos os usuários `confirmed`. Fase 10 (Denúncia e moderação) concluída e mergeada em `dev` (PR #26, commit `b11b834`): `POST /reports`, `GET /reports`, `PATCH /reports/{id}` (`archive`/`warn`/`ban`), com RBAC mínimo via `get_current_admin`. Após o merge, `pip-audit` no CI motivou a troca de `python-jose` por `PyJWT` (commit `ffe7fa3`) para eliminar a dependência transitiva `ecdsa==0.19.2` (`PYSEC-2026-1325`, sem fix disponível), sem mudança de comportamento (`HS256` continua sendo o único algoritmo usado). Fase 11 (Hardening e integração final) iniciada na branch `feature/fase-11-hardening`: refresh token com rotação (`POST /auth/refresh`, `POST /auth/logout`, tabela `refresh_tokens`) e `POST /matches/{id}/close` (fechamento manual de partida pelo organizador) implementados e validados localmente (96 testes, 97.89% cobertura); cobertura de testes (99.07%) e documentação OpenAPI concluídas e mergeadas via PR #28 (commit `90e9427`); CORS/produção, hospedagem e integração com o front ainda não iniciados. Fase 12 (Refinamentos de contrato) **concluída**: D-B, D-C e D-D (ver `progress.md` §"Fase 12") — `RatingRead.rated_user` expandido como `PublicProfileRead`; `RatingRead.match`/`ReportRead.match` expandidos como `MatchRef` (`id, title, sport, date`) em vez de `match_id` solto; `create_match` passou a emitir automaticamente uma `Message(type=system)` ao criar a partida. `feature/fase-12-contrato` mergeada em `dev` via PR #31. Itens de infraestrutura também concluídos: `cors_origins` configurável, purge de `refresh_tokens` no startup, `/openapi.json` validado contra o front, hospedagem decidida (**Railway**, com `Procfile`/driver `psycopg`/documentação de deploy prontos) e `POST /auth/logout-all` para logout de todos os dispositivos (branch `feature/fase-12-infra-final`). Tudo validado com `pytest` (113 testes, 99.11% cobertura), `ruff`/`black`/`mypy`/`bandit`/`alembic check` verdes e checagem manual via `/openapi.json` e `uvicorn` local. Ver `vision.md` para o contexto completo e `progress.md` para o histórico detalhado.
 
@@ -273,10 +273,10 @@ Herdado do `vision.md` (seção 8):
 
 Esses recursos poderão ser desenvolvidos em etapas futuras, após a validação do MVP integrado.
 **Geolocalização real e notificações push saíram desta lista em 2026-07-08** — não são mais
-"talvez", são a Fase 13 (§19) — mas continuam bloqueadas até a Fase 13 do front terminar. Se
-algum dos itens que permanecem nesta lista (WebSocket, upload de imagem, pagamento/reserva,
-moderação sofisticada) também virar escopo confirmado, registrar aqui do mesmo jeito antes de
-começar a implementar.
+"talvez", são a Fase 13 (§19), **destravada em 2026-07-16** (a Fase 13 do front, pré-requisito,
+está concluída — ver §19 para o plano consolidado). Se algum dos itens que permanecem nesta lista
+(WebSocket, upload de imagem, pagamento/reserva, moderação sofisticada) também virar escopo
+confirmado, registrar aqui do mesmo jeito antes de começar a implementar.
 
 ## 17. Próxima evolução após esta etapa
 
@@ -348,15 +348,24 @@ sua Fase 13 sem risco de retrabalho por mudança de schema no meio do caminho.
 
 > Registrada em 2026-07-08. Geolocalização e push **eram o plano original do produto** (não
 > escopo novo) — o autor confirmou que serão implementados de fato, não só citados como
-> "trabalho futuro" no TCC. **Bloqueada até a Fase 13 do front
-> (`../front/.status/roadmap.md` §19) terminar** — construir sobre um contrato de API que o
-> front ainda vai atravessar de ponta a ponta pela primeira vez é retrabalho na certa. Até lá,
-> esta seção serve só para registrar o escopo e as decisões de design a fechar antes de
-> implementar — nenhum código desta fase deve ser escrito enquanto a Fase 13 do front não
-> fechar. Cada uma das duas frentes abaixo também exige trabalho simétrico do lado do front
-> (captura de coordenadas via `expo-location`, registro de push token via
-> `expo-notifications`, permissões do dispositivo) — fora do escopo deste repositório, mas
-> citado aqui para não perder a visão de conjunto.
+> "trabalho futuro" no TCC.
+>
+> **Atualização (2026-07-16, sessão 29 do front — "squadup-app"): DESTRAVADA.** A Fase 13 do
+> front (`../squadup-app/.status/roadmap.md` §19, "Integração com o backend real") está 100%
+> concluída (16/16) desde a sessão 28. O front avançou o desenho completo desta fase conjunta —
+> escopo confirmado com o usuário (geolocalização com coordenadas reais via GPS, não geocoding;
+> push no conjunto essencial de eventos), contrato de API definido campo a campo e etapas
+> numeradas por repositório. **Plano mestre consolidado (fonte única de verdade para o contrato):
+> `../squadup-app/.status/backend-contract.md` §6-A.** As decisões D-Geo-1/2 e D-Push-1/2 abaixo,
+> registradas aqui em 2026-07-08, foram confirmadas sem alteração nessa consolidação — o plano do
+> front só as complementou com D-Geo-3/4 e D-Push-3/4 (comportamento de permissão negada e
+> tratamento de falha, ver §6-A). Nada nesta seção mudou de conteúdo; a diferença é que agora
+> **pode começar a implementação** — ver a fila executável em `queue.md`.
+>
+> Cada uma das duas frentes abaixo exige trabalho simétrico do lado do front (captura de
+> coordenadas via `expo-location`, registro de push token via `expo-notifications`, permissões do
+> dispositivo) — fora do escopo deste repositório, mas detalhado em
+> `../squadup-app/.status/roadmap.md` §20 para quem quiser o quadro completo.
 
 ### 19.1 — Geolocalização real
 

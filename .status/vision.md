@@ -100,10 +100,14 @@ Herdado do front (`vision.md`, seção 14) e ainda válido do lado do backend:
 **Atualização (2026-07-08):** geolocalização real e notificações push reais **saíram desta
 lista** — eram o plano original do produto desde o início (não escopo novo), e o autor
 confirmou que serão implementadas de fato, não só citadas como trabalho futuro no TCC. Ver
-`roadmap.md` §19 (Fase 13) para o detalhamento — fase registrada e **bloqueada até a Fase 13 do
-front (`../front/.status/roadmap.md` §19) terminar**, para não construir sobre um contrato de
-API ainda em mudança. (Mesmo número "13" nos dois lados por coincidência — cada repositório
-numera suas próprias fases de forma independente, mesmo padrão já usado no projeto.)
+`roadmap.md` §19 (Fase 13) para o detalhamento. (Mesmo número "13" nos dois lados por
+coincidência — cada repositório numera suas próprias fases de forma independente, mesmo padrão
+já usado no projeto.)
+
+**Atualização (2026-07-16, sessão 29):** a Fase 13 do front terminou (integração real,
+16/16) e esta fase está **destravada** — o front conduziu o desenho conjunto completo (contrato
+de API, decisões de arquitetura) consolidado em `../squadup-app/.status/backend-contract.md`
+§6-A. Fila executável de código em `queue.md` deste repositório.
 
 ## 9. Critérios de sucesso do MVP com backend
 

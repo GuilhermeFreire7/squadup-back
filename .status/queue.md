@@ -4,9 +4,9 @@
 
 ## Em andamento
 
-_Fases 1 a 12 concluídas (ver `progress.md`). Fase 12 encerrada e commitada (3 commits) na branch `feature/fase-12-infra-final` (cortada de `dev` em 2026-07-08) — hospedagem decidida (Railway) e `POST /auth/logout-all` implementado. Ainda **sem push/PR** dessa branch — só quando o usuário pedir. Verificado com o repositório do front (`../front`) que a Etapa 1 do plano mestre de integração está de fato encerrada e nada bloqueia a Fase 13 de lá._
+_Fases 1 a 12 concluídas (ver `progress.md`). Fase 12 encerrada e commitada (3 commits) na branch `feature/fase-12-infra-final` (cortada de `dev` em 2026-07-08) — hospedagem decidida (Railway) e `POST /auth/logout-all` implementado. Ainda **sem push/PR** dessa branch — só quando o usuário pedir. Verificado com o repositório do front (pasta local `squadup-app`, remote `squadup-app`) que a Etapa 1 do plano mestre de integração está de fato encerrada e nada bloqueia a Fase 13 de lá._
 
-_**Fase 13 (geolocalização real + notificações push) registrada em 2026-07-08** — era o plano original do produto, o autor confirmou que quer implementar de fato. Detalhamento completo em `roadmap.md` §19. **Bloqueada até a Fase 13 do front terminar** (o front ainda está 100% mockado — ver `../front/.status/plano-de-entrega.md`). Instrução explícita do usuário: parar de tocar no front por ora e focar no back; então, até o front avisar que a integração real terminou, **não há tarefa de código a fazer aqui** — só esta documentação, já concluída nesta sessão._
+_**Fase 13 (geolocalização real + notificações push) registrada em 2026-07-08 — DESTRAVADA em 2026-07-16 (sessão 29 do front).** Era o plano original do produto, o autor confirmou que quer implementar de fato. Detalhamento completo em `roadmap.md` §19. A Fase 13 do front (integração real, pré-requisito) está 100% concluída (16/16, sessão 28) — o front avançou nesta sessão o desenho conjunto completo, consolidado em `../squadup-app/.status/backend-contract.md` §6-A (contrato de API, decisões D-Geo-3/4 e D-Push-3/4 novas, complementando as D-Geo-1/2 e D-Push-1/2 já registradas aqui). **Existe agora uma fila executável de código para este repositório** — ver "Próxima tarefa — Fase 13" abaixo, que substitui a antiga observação de "nada a fazer"._
 
 ## Bloqueios
 
@@ -76,26 +76,56 @@ nesta mesma sessão: os documentos `../front/.status/backend-contract.md`, `queu
 `roadmap.md` foram lidos e atualizados para refletir que a Etapa 1 (este pré-requisito) está
 concluída — ver detalhe abaixo, "Checkpointer".
 
+## Próxima tarefa — Fase 13: geolocalização real e notificações push
+
+> Detalhamento completo (decisões de arquitetura, contrato de API campo a campo) em `roadmap.md`
+> §19 e no plano consolidado `../squadup-app/.status/backend-contract.md` §6-A. Etapas 1–4 abaixo
+> são deste repositório; a numeração corresponde exatamente às etapas 1–4 do plano mestre em
+> §6-A (etapas 5–8 são do front).
+
+| # | Tarefa | Status |
+|---|--------|--------|
+| 1 | Migration `latitude: float \| null`, `longitude: float \| null` em `Match`; `MatchCreate`/`MatchRead`/`MatchDetailRead` atualizados | ⚪ |
+| 2 | `GET /matches` ganha `lat`/`lng`/`radius_km` (query params opcionais, default `radius_km=20`); filtro por Haversine (SQL puro ou Python pós-bounding-box, sem PostGIS); ordenação por distância quando os 3 params vierem juntos; testes cobrindo partida dentro/fora do raio | ⚪ |
+| 3 | Tabela `push_tokens` (`id`, `user_id → users.id`, `token` unique, `created_at`); `POST /users/me/push-token` (upsert idempotente); revogação de push tokens em `POST /auth/logout`/`logout-all` | ⚪ |
+| 4 | `app/services/notification_service.py` (`send_push(user_id, title, body, data)` via `expo-server-sdk`, nunca propaga exceção — falha de entrega só loga, D-Push-4); disparo via `BackgroundTasks` nos 3 eventos: nova mensagem (`message_service`), participação aprovada (`match_service.approve_participant`), partida encerrada/cancelada (`match_service.close_match`); testes com cliente Expo mockado (nunca bater na Expo real em `pytest`) | ⚪ |
+
+**Ordem de dependência:** etapas 1–2 (geo) e 3 (push, tabela+endpoint) são independentes entre
+si e podem ser feitas em paralelo/qualquer ordem. Etapa 4 depende só da 3. Nenhuma delas depende
+do front — são aditivas ao contrato existente, então podem ser desenvolvidas e testadas via
+Swagger/`pytest` antes mesmo do front começar sua parte (etapas 5–8 do plano mestre).
+
+**Nova dependência de runtime:** adicionar `expo-server-sdk` (ou equivalente Python — avaliar se
+existe um pacote maduro, senão chamar a Expo Push API via `httpx` diretamente, já uma dependência
+existente do projeto) ao `requirements.txt`.
+
+**Lição a aplicar (do padrão já estabelecido nas Fases 7/9, ver acima):** `latitude`/`longitude`
+são dados de entrada, não derivados — não há regra de "nunca campo solto" aplicável aqui (ao
+contrário de `status`/`average_rating`). Mas a ordenação por distância em `GET /matches` deve ser
+calculada em tempo de leitura a partir de `lat`/`lng` da query e da partida, nunca cacheada.
+
 ## Plano de entrega final (app + backend + TCC)
 
 > Traçado em 2026-07-08 a partir da leitura de `../front/TCC.tex` (monografia do TCC do autor) e do estado real dos dois repositórios: **`../front/.status/plano-de-entrega.md`**. Cobre deploy real do backend (Railway), a Fase 13 de integração do front (maior bloco de trabalho restante — o front ainda é 100% mockado), build/demo do app para a defesa, estrutura de assets do TCC (hoje só existem no Overleaf) e os gaps de conteúdo da monografia (faltam ~7 casos de uso documentados, capítulo de resultados/testes, correção de trechos sobre geolocalização). Consultar antes de decidir a próxima prioridade de infraestrutura.
 
 ## Próximo passo sugerido
 
-Fases 1 a 12 concluídas. Fase 13 (`roadmap.md` §19 — geolocalização real + notificações push)
-está **registrada, mas bloqueada** até a Fase 13 do front terminar — não escrever código dela
-antes disso (risco de retrabalho sobre um contrato de API que o front ainda vai atravessar de
-ponta a ponta pela primeira vez).
+Fases 1 a 12 concluídas. **Fase 13 (`roadmap.md` §19 — geolocalização real + notificações push)
+destravada em 2026-07-16** — a Fase 13 do front (pré-requisito) terminou (16/16, sessão 28), e o
+front avançou nesta sessão o desenho conjunto completo (contrato de API, decisões de arquitetura)
+consolidado em `../squadup-app/.status/backend-contract.md` §6-A. **Há agora uma fila executável
+de código para este repositório** — ver "Próxima tarefa — Fase 13" acima (4 tarefas, etapas 1–4
+do plano mestre, todas aditivas ao contrato existente e sem dependência do front para começar).
 
-O que **não** está bloqueado e pode avançar em paralelo, independente do front:
+O que também não está bloqueado e pode avançar em paralelo:
 (a) promover `dev` para `main` pela primeira vez (dívida técnica registrada acima) antes do
 primeiro deploy real no Railway; (b) executar de fato o primeiro deploy no Railway (criar o
 projeto, addon de Postgres, variáveis de ambiente) — passos documentados no README.md "Deploy",
 mas não executados ainda por exigirem uma conta/credenciais que este ambiente não tem.
 
-Fora isso, **não há tarefa de código pendente no back neste momento** — instrução explícita do
-usuário nesta sessão foi parar de tocar no front e focar aqui, mas o próprio trabalho real da
-Fase 13 depende do front avançar primeiro. Ver "Checkpointer" abaixo para o estado exato.
+Recomendação de ordem: começar pela Fase 13 (código novo, maior valor) e tratar a promoção de
+`main`/primeiro deploy real como está, quando o usuário tiver as credenciais. Ver "Checkpointer"
+abaixo para o estado exato do repositório.
 
 ## Notas
 
@@ -148,3 +178,31 @@ Fase 13 depende do front avançar primeiro. Ver "Checkpointer" abaixo para o est
   espera o front.
 - **Nada bloqueado no sentido de "trabalho parado por erro"** — só a ordem de dependência entre
   repositórios definida pelo próprio usuário.
+
+## Checkpointer — sessão 29 (2026-07-16), atualiza o estado acima
+
+**O bloqueio registrado no checkpointer da sessão anterior (acima) foi resolvido.** A Fase 13 do
+front terminou (16/16, sessão 28, 2026-07-16) e, na mesma data, o front conduziu o desenho
+conjunto completo desta Fase 13 do backend — escopo confirmado com o usuário (geolocalização com
+coordenadas reais via GPS do dispositivo; notificações push no conjunto essencial de eventos),
+contrato de API fechado campo a campo, e etapas numeradas por repositório. Consolidado em
+`../squadup-app/.status/backend-contract.md` §6-A (também referenciado aqui em `roadmap.md` §19
+e na fila executável acima, "Próxima tarefa — Fase 13").
+
+- **Nomes de pasta corrigidos nesta sessão:** o front é acessível como `../squadup-app` (não
+  mais `../front` — o caminho usado nos checkpointers anteriores). O usuário confirmou que usa
+  este backend em duas máquinas com nomes de pasta diferentes; os caminhos relativos citados
+  neste documento a partir de agora devem ser tratados como referência de conteúdo, não
+  literalmente resolvíveis em toda máquina — confirmar o nome real da pasta irmã antes de seguir
+  um link relativo se ele não resolver.
+- **Há agora 4 tarefas de código concretas e não bloqueadas neste repositório** (ver "Próxima
+  tarefa — Fase 13" acima): migration de `latitude`/`longitude` + filtro de proximidade em
+  `GET /matches`; tabela `push_tokens` + endpoint de registro; serviço de notificação + disparo
+  nos 3 eventos. Nenhuma delas depende de código novo do front para começar — são aditivas ao
+  contrato já estável desde a Fase 12.
+- **Risco de cronograma:** esta é uma adição de escopo fora do plano original do TCC — ver
+  `../squadup-app/.status/plano-de-entrega.md` §9 para a avaliação de risco completa e o plano de
+  contingência (cortar push antes de cortar geo, se o prazo até a defesa apertar).
+- **Próximo passo sugerido:** iniciar pelas etapas 1–2 (geolocalização, `roadmap.md` §19.1) ou
+  3–4 (push, §19.2) — são trilhas independentes entre si, ordem livre. Recomendação: geo primeiro
+  (menor superfície de mudança, sem dependência de biblioteca externa de push), depois push.
