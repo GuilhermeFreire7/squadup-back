@@ -16,7 +16,6 @@ _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste
 
 ## Dívidas técnicas conhecidas
 
-- **`main` está atrasada em relação a `dev`** desde a Fase 1 — nenhuma fase ainda foi promovida para `main`. Reavaliar quando/se isso importa (ex.: antes do primeiro deploy real).
 - **`POST /auth/logout` (single-device) não revoga o push token do dispositivo que está saindo** — só `POST /auth/logout-all` remove push tokens (todos os do usuário, ver `auth_service.revoke_all_refresh_tokens`). O contrato de `POST /users/me/push-token` (`{ token }`) não associa o token a uma sessão/refresh token específico, então não há como saber com segurança qual push token pertence ao dispositivo saindo sem arriscar remover o de outro dispositivo ainda ativo do mesmo usuário. Efeito prático: um usuário que só desloga em 1 de N dispositivos continua podendo receber push nesse dispositivo até o token expirar/falhar na Expo (`DeviceNotRegistered`) ou até um `logout-all`. Baixa prioridade — não afeta segurança de dados, só higiene de notificação. Se isso incomodar no futuro, a correção exigiria ampliar o contrato de `POST /users/me/push-token` para receber um identificador de sessão/device, o que é mudança de contrato (envolve o front). Descoberto na sessão 30 (2026-07-28) ao implementar a Fase 13, etapa 3.
 - **Migration da Fase 13 (`latitude`/`longitude` em `Match`, tabela `push_tokens`) ainda não foi aplicada em produção (Railway)** — só validada localmente via SQLite (`alembic upgrade head` + `alembic check`, sessão 30). Rodar `alembic upgrade head` no ambiente de produção antes de qualquer teste do front contra a API de produção (`https://squadup-api.up.railway.app`) que dependa de `lat`/`lng`/`radius_km` ou `POST /users/me/push-token` — do contrário, esses endpoints vão falhar em produção mesmo estando corretos localmente.
 
@@ -72,12 +71,17 @@ Fases 1 a 12 concluídas; Fase 13 com as 4 tarefas de backend concluídas e merg
 **Nada de código está bloqueado neste repositório neste momento** — o único item restante
 (etapa 8, hardening) depende do front avançar primeiro.
 
-O que não está bloqueado e pode avançar em paralelo, se o usuário quiser:
-(a) promover `dev` para `main` pela primeira vez (dívida técnica registrada acima) antes do
-primeiro deploy real no Railway; (b) executar de fato o primeiro deploy no Railway e **rodar a
-migration pendente da Fase 13** (`alembic upgrade head`) no ambiente de produção — sem isso,
-`lat`/`lng`/`radius_km` e `POST /users/me/push-token` vão falhar em produção mesmo estando
-corretos localmente (ver dívida técnica acima).
+**Atualização (2026-07-28, sessão 30 — fim de sessão):** `dev` foi promovida para `main` pela
+primeira vez (fast-forward `440ef35..30eb5d9`, sem conflitos, push confirmado pelo usuário) —
+a dívida técnica de `main` atrasada está resolvida. `main` e `dev` agora apontam para o mesmo
+commit.
+
+O que ainda não está bloqueado e pode avançar, se o usuário quiser: executar de fato o primeiro
+deploy no Railway e **rodar a migration pendente da Fase 13** (`alembic upgrade head`) no
+ambiente de produção — sem isso, `lat`/`lng`/`radius_km` e `POST /users/me/push-token` vão
+falhar em produção mesmo estando corretos localmente (ver dívida técnica acima). Essa ação
+depende do painel/CLI do Railway (credenciais do usuário), não é executável direto neste
+ambiente.
 
 ## Notas
 
