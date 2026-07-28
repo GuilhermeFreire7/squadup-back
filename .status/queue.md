@@ -6,7 +6,7 @@
 
 _Fases 1 a 12 concluídas e mergeadas em `dev` (ver `progress.md`)._
 
-_**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização: `useDeviceLocation`, coordenadas na criação de partida, filtro por proximidade em `FiltersScreen`/`MatchCard`) já foram concluídas (sessões 31–32, 2026-07-28) — falta só a etapa 7 (push) do front e a etapa 8 (hardening ponta a ponta em dispositivo físico, ambos os repositórios) — **nada bloqueado neste repositório neste momento**._
+_**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28) — falta só a etapa 8 (hardening ponta a ponta em dispositivo físico, ambos os repositórios) — **nada bloqueado neste repositório neste momento**._
 
 ## Bloqueios
 
@@ -58,9 +58,9 @@ _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste
 
 Item que falta para fechar a Fase 13 por completo: **etapa 8 — hardening ponta a ponta em
 dispositivo físico**, testando geolocalização real (GPS) e push real (Expo). O front já concluiu
-as etapas 5–6 (geolocalização, sessões 31–32, 2026-07-28); falta só a etapa 7 (push) do lado do
-front (`../squadup-front/.status/roadmap.md` §20, Fase 14 de lá — item 7 da tabela) antes de a
-etapa 8 poder começar. Nenhuma ação de código pendente neste repositório até lá.
+as etapas 5–7 (geolocalização e push, sessões 31–33, 2026-07-28) — a etapa 8 é o **único item
+restante de toda a Fase 13/Fase 14**, em ambos os repositórios. Nenhuma ação de código pendente
+neste repositório até lá.
 
 ## Plano de entrega final (app + backend + TCC)
 
@@ -86,13 +86,17 @@ Migration pendente da Fase 13 **resolvida** — ver dívida técnica acima.
 Com isso, a Fase 13 está tecnicamente completa do lado de infraestrutura/deploy; só falta a
 etapa 8 (hardening ponta a ponta em dispositivo físico), que segue bloqueada pelo front.
 
-**Atualização (2026-07-28, sessões 31–32 do front):** o front concluiu as etapas 5–6
+**Atualização (2026-07-28, sessões 31–33 do front):** o front concluiu as etapas 5–7 — 5–6
 (geolocalização real: `useDeviceLocation`, coordenadas na criação de partida, filtro por
 proximidade em `FiltersScreen`/`MatchCard` consumindo o `distance_km` que este backend já
-devolve) — ver `../squadup-front/.status/roadmap.md` §20 e `progress.md` (sessão 32) de lá para o
-detalhe completo. Falta só a etapa 7 (push) do front antes de a etapa 8 (hardening conjunto)
-poder começar. Nenhuma ação de código ou de infraestrutura pendente neste repositório neste
-momento.
+devolve) e 7 (push: `useNotificationRegistration` obtém o `ExpoPushToken` e registra em
+`POST /users/me/push-token`, que este backend já expõe desde a Fase 13; listener de navegação
+consumindo exatamente o contrato `{ type, matchId }` que `notification_service.py`/
+`message_service.py`/`match_service.py` já emitem) — ver `../squadup-front/.status/roadmap.md`
+§20 e `progress.md` (sessões 32–33) de lá para o detalhe completo. **Falta só a etapa 8
+(hardening ponta a ponta em dispositivo físico) — único item restante de toda a Fase 13/Fase 14,
+em ambos os repositórios.** Nenhuma ação de código ou de infraestrutura pendente neste
+repositório neste momento.
 
 ## Notas
 
@@ -141,15 +145,18 @@ Branch `feature/fase-13-geo-push` já pode ser deletada (local e remota) quando 
   máquina; tratar caminhos relativos citados neste documento como referência de conteúdo, não
   literalmente resolvíveis, e confirmar o nome real antes de seguir um link).
 - **O que falta para fechar a Fase 13 por completo:** só a etapa 8 (hardening ponta a ponta em
-  dispositivo físico, geo + push reais), que depende do front implementar as etapas 5–7 primeiro
+  dispositivo físico, geo + push reais) — front já concluiu as etapas 5–7
   (`../squadup-front/.status/roadmap.md` §20 — Fase 14 de lá).
 - **Próximo passo sugerido:** nenhum trabalho de código, deploy ou infraestrutura pendente
-  neste repositório. Único item restante para fechar a Fase 13 é a etapa 8 (hardening ponta a
-  ponta em dispositivo físico), bloqueada até o front avançar sua etapa 7 (push).
+  neste repositório. Único item restante para fechar a Fase 13/Fase 14 é a etapa 8 (hardening
+  ponta a ponta em dispositivo físico), a única pendência em qualquer um dos dois repositórios.
 
-**Nota de sincronização (2026-07-28, sessões 31–32 do front — nenhuma mudança de código neste
-repositório):** o front concluiu as etapas 5–6 (geolocalização real) do plano do §20 de lá —
-`useDeviceLocation`, coordenadas reais na criação de partida, e o filtro por proximidade
-(`FiltersScreen`/`MatchCard`) já consome `lat`/`lng`/`radius_km`/`distance_km` deste backend em
-produção. Falta só a etapa 7 (push) do front. Nada mudou do lado do backend — este repositório
-segue com working tree limpo, branch `dev`, sem tarefa de código pendente.
+**Nota de sincronização (2026-07-28, sessões 31–33 do front — nenhuma mudança de código neste
+repositório):** o front concluiu as etapas 5–7 do plano do §20 de lá — 5–6 (geolocalização real:
+`useDeviceLocation`, coordenadas reais na criação de partida, filtro por proximidade em
+`FiltersScreen`/`MatchCard` consumindo `lat`/`lng`/`radius_km`/`distance_km` deste backend em
+produção) e 7 (push: `useNotificationRegistration` registra o `ExpoPushToken` via
+`POST /users/me/push-token`, listener de navegação consumindo o contrato `{ type, matchId }` já
+emitido por `notification_service.py`). Falta só a etapa 8 (hardening em dispositivo físico).
+Nada mudou do lado do backend — este repositório segue com working tree limpo, branch `dev`, sem
+tarefa de código pendente.

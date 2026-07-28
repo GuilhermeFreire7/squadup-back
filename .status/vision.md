@@ -116,8 +116,9 @@ coordenadas, filtro/ordenação por distância em `GET /matches`, tabela `push_t
 de ser "planejadas" e passam a ser, de fato, parte do backend em produção assim que o deploy no
 Railway rodar a migration pendente (migration já aplicada em produção, confirmado em 2026-07-28).
 Falta só o hardening ponta a ponta em dispositivo físico, que depende do front terminar sua parte
-(`../squadup-front/.status/roadmap.md` §20) — as etapas 5–6 (geolocalização) já foram concluídas
-(sessões 31–32, 2026-07-28); resta a etapa 7 (push).
+(`../squadup-front/.status/roadmap.md` §20) — as etapas 5–7 (geolocalização e push) já foram
+concluídas (sessões 31–33, 2026-07-28); resta só a etapa 8 (hardening), a única pendência de toda
+a Fase 13/Fase 14 em qualquer um dos dois repositórios.
 
 ## 9. Critérios de sucesso do MVP com backend
 
