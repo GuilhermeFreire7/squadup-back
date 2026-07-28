@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.database import get_session
 from app.core.security import ALGORITHM, create_access_token, hash_refresh_token, utc_now_naive
 from app.main import app
+from app.models.push_token import PushToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services.auth_service import purge_expired_refresh_tokens
@@ -199,6 +200,20 @@ def test_logout_all_rejects_missing_token(client: TestClient) -> None:
     response = client.post("/auth/logout-all")
 
     assert response.status_code == 401
+
+
+def test_logout_all_revokes_registered_push_tokens(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    tokens = _login(client)
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    client.post("/users/me/push-token", json={"token": "device-token"}, headers=headers)
+
+    response = client.post("/auth/logout-all", headers=headers)
+
+    assert response.status_code == 204
+    assert session.exec(select(PushToken)).all() == []
 
 
 def test_logout_all_does_not_affect_other_users_tokens(client: TestClient) -> None:

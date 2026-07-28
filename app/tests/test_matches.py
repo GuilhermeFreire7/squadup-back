@@ -101,6 +101,8 @@ def _make_match(
     location: str = "Arena Botafogo",
     level: ExperienceLevel = ExperienceLevel.INTERMEDIATE,
     status: MatchStatus = MatchStatus.OPEN,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> Match:
     match = Match(
         id=id_,
@@ -113,6 +115,8 @@ def _make_match(
         level=level,
         organizer_id=organizer.id,
         status=status,
+        latitude=latitude,
+        longitude=longitude,
     )
     session.add(match)
     session.commit()
@@ -762,3 +766,184 @@ def test_approve_participant_rejects_when_no_pending_request(
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "PENDING_PARTICIPANT_NOT_FOUND"
+
+
+# Coordenadas reais do Rio de Janeiro, usadas nos testes de busca geográfica.
+BOTAFOGO = (-22.9519, -43.1889)
+COPACABANA = (-22.9711, -43.1822)  # ~4km de Botafogo
+BRASILIA = (-15.7801, -47.9292)  # ~1000km+ de distância
+
+
+def test_create_match_accepts_optional_coordinates(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    payload = {**MATCH_CREATE_PAYLOAD, "latitude": BOTAFOGO[0], "longitude": BOTAFOGO[1]}
+
+    response = client.post("/matches", json=payload, headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["latitude"] == BOTAFOGO[0]
+    assert body["longitude"] == BOTAFOGO[1]
+
+
+def test_create_match_without_coordinates_defaults_to_null(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+
+    response = client.post(
+        "/matches", json=MATCH_CREATE_PAYLOAD, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["latitude"] is None
+    assert body["longitude"] is None
+
+
+def test_list_matches_with_geo_filters_out_matches_beyond_radius(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "match-near", organizer, latitude=COPACABANA[0], longitude=COPACABANA[1])
+    _make_match(session, "match-far", organizer, latitude=BRASILIA[0], longitude=BRASILIA[1])
+
+    response = client.get(
+        "/matches",
+        params={"lat": BOTAFOGO[0], "lng": BOTAFOGO[1], "radius_km": 20},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [m["id"] for m in body] == ["match-near"]
+    assert body[0]["distance_km"] is not None
+
+
+def test_list_matches_with_geo_orders_by_distance(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "match-far", organizer, latitude=COPACABANA[0], longitude=COPACABANA[1])
+    _make_match(session, "match-near", organizer, latitude=BOTAFOGO[0], longitude=BOTAFOGO[1])
+
+    response = client.get(
+        "/matches",
+        params={"lat": BOTAFOGO[0], "lng": BOTAFOGO[1], "radius_km": 20},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [m["id"] for m in body] == ["match-near", "match-far"]
+    assert body[0]["distance_km"] == 0.0
+    assert body[1]["distance_km"] > body[0]["distance_km"]
+
+
+def test_list_matches_with_geo_excludes_matches_without_coordinates(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(
+        session, "match-with-coords", organizer, latitude=BOTAFOGO[0], longitude=BOTAFOGO[1]
+    )
+    _make_match(session, "match-without-coords", organizer)
+
+    response = client.get("/matches", params={"lat": BOTAFOGO[0], "lng": BOTAFOGO[1]})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [m["id"] for m in body] == ["match-with-coords"]
+
+
+def test_list_matches_without_lat_lng_ignores_radius_km(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "match-1", organizer, latitude=BRASILIA[0], longitude=BRASILIA[1])
+
+    response = client.get("/matches", params={"radius_km": 1})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [m["id"] for m in body] == ["match-1"]
+    assert body[0]["distance_km"] is None
+
+
+def test_close_match_sends_push_to_confirmed_participants_excluding_organizer(
+    db_client: tuple[TestClient, Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+
+    player_token = _register_and_login(client, email="player@example.com")
+    player_headers = {"Authorization": f"Bearer {player_token}"}
+    _join(client, match.id, player_token)
+    client.post("/users/me/push-token", json={"token": "player-token"}, headers=player_headers)
+    client.post(
+        "/users/me/push-token",
+        json={"token": "organizer-token"},
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    sent_tokens: list[str] = []
+    monkeypatch.setattr(
+        "app.services.notification_service.httpx.post",
+        lambda url, json, timeout: sent_tokens.extend(m["to"] for m in json),
+    )
+
+    response = client.post(
+        f"/matches/{match.id}/close",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 200
+    assert sent_tokens == ["player-token"]
+
+
+def test_approve_participant_sends_push_to_approved_user(
+    db_client: tuple[TestClient, Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_id = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {organizer_token}"}
+    ).json()["id"]
+    organizer = session.get(User, organizer_id)
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    match.requires_approval = True
+    session.add(match)
+    session.commit()
+
+    player_token = _register_and_login(client, email="player@example.com")
+    player_headers = {"Authorization": f"Bearer {player_token}"}
+    player_id = client.get("/users/me", headers=player_headers).json()["id"]
+    _join(client, match.id, player_token)
+    client.post("/users/me/push-token", json={"token": "player-token"}, headers=player_headers)
+
+    sent_tokens: list[str] = []
+    monkeypatch.setattr(
+        "app.services.notification_service.httpx.post",
+        lambda url, json, timeout: sent_tokens.extend(m["to"] for m in json),
+    )
+
+    response = client.post(
+        f"/matches/{match.id}/participants/{player_id}/approve",
+        headers={"Authorization": f"Bearer {organizer_token}"},
+    )
+
+    assert response.status_code == 200
+    assert sent_tokens == ["player-token"]

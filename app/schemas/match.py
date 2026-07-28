@@ -18,6 +18,8 @@ class MatchCreate(BaseModel):
     description: str | None = Field(default=None, examples=["Jogo de campo gramado."])
     allow_beginners: bool = Field(default=True, examples=[True])
     requires_approval: bool = Field(default=False, examples=[False])
+    latitude: float | None = Field(default=None, ge=-90, le=90, examples=[-22.9519])
+    longitude: float | None = Field(default=None, ge=-180, le=180, examples=[-43.1889])
 
 
 class MatchRef(BaseModel):
@@ -50,8 +52,16 @@ class MatchRead(BaseModel):
     status: MatchStatus = Field(examples=[MatchStatus.OPEN])
     allow_beginners: bool = Field(examples=[False])
     requires_approval: bool = Field(examples=[False])
+    latitude: float | None = Field(default=None, examples=[-22.9519])
+    longitude: float | None = Field(default=None, examples=[-43.1889])
     confirmed_count: int = Field(examples=[4])
     available_slots: int = Field(examples=[10])
+    distance_km: float | None = Field(
+        default=None,
+        examples=[3.2],
+        description="Distância até o ponto de busca, em km. Só presente quando a busca "
+        "informou lat/lng.",
+    )
 
     model_config = {"from_attributes": True}
 

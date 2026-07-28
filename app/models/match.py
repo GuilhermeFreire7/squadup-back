@@ -26,6 +26,8 @@ class Match(SQLModel, table=True):
     max_participants: int = Field(gt=0)
     level: ExperienceLevel
     description: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     organizer_id: str = Field(foreign_key="users.id", index=True)
     status: MatchStatus = Field(default=MatchStatus.OPEN)
     allow_beginners: bool = Field(default=True)

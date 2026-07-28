@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlmodel import Session
 
 from app.core.database import get_session
@@ -50,7 +50,8 @@ def read_messages(
 def send_message(
     match_id: str,
     payload: MessageCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> MessageRead:
-    return create_message(session, match_id, payload, current_user)
+    return create_message(session, match_id, payload, current_user, background_tasks)

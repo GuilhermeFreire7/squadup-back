@@ -86,3 +86,36 @@ def test_read_public_profile_returns_404_for_unknown_user(client: TestClient) ->
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "USER_NOT_FOUND"
+
+
+def test_register_push_token_returns_no_content(client: TestClient) -> None:
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+
+    response = client.post(
+        "/users/me/push-token",
+        json={"token": "ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 204
+
+
+def test_register_push_token_is_idempotent(client: TestClient) -> None:
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"token": "ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]"}
+
+    first = client.post("/users/me/push-token", json=payload, headers=headers)
+    second = client.post("/users/me/push-token", json=payload, headers=headers)
+
+    assert first.status_code == 204
+    assert second.status_code == 204
+
+
+def test_register_push_token_rejects_missing_token(client: TestClient) -> None:
+    response = client.post(
+        "/users/me/push-token",
+        json={"token": "ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]"},
+    )
+
+    assert response.status_code == 401
