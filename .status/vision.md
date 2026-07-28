@@ -114,9 +114,10 @@ coordenadas, filtro/ordenação por distância em `GET /matches`, tabela `push_t
 `POST /users/me/push-token`, `notification_service` + disparo nos 3 eventos essenciais) estão
 **implementadas e mergeadas em `dev`** (PR #50). Geolocalização real e notificações push deixam
 de ser "planejadas" e passam a ser, de fato, parte do backend em produção assim que o deploy no
-Railway rodar a migration pendente. Falta só o hardening ponta a ponta em dispositivo físico,
-que depende do front implementar sua parte (`../squadup-front/.status/roadmap.md` §20, etapas
-5–7 — ainda não iniciadas).
+Railway rodar a migration pendente (migration já aplicada em produção, confirmado em 2026-07-28).
+Falta só o hardening ponta a ponta em dispositivo físico, que depende do front terminar sua parte
+(`../squadup-front/.status/roadmap.md` §20) — as etapas 5–6 (geolocalização) já foram concluídas
+(sessões 31–32, 2026-07-28); resta a etapa 7 (push).
 
 ## 9. Critérios de sucesso do MVP com backend
 
