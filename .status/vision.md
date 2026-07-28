@@ -106,8 +106,17 @@ já usado no projeto.)
 
 **Atualização (2026-07-16, sessão 29):** a Fase 13 do front terminou (integração real,
 16/16) e esta fase está **destravada** — o front conduziu o desenho conjunto completo (contrato
-de API, decisões de arquitetura) consolidado em `../squadup-app/.status/backend-contract.md`
+de API, decisões de arquitetura) consolidado em `../squadup-front/.status/backend-contract.md`
 §6-A. Fila executável de código em `queue.md` deste repositório.
+
+**Atualização (2026-07-28, sessão 30):** as 4 tarefas de código deste repositório (migration de
+coordenadas, filtro/ordenação por distância em `GET /matches`, tabela `push_tokens` +
+`POST /users/me/push-token`, `notification_service` + disparo nos 3 eventos essenciais) estão
+**implementadas e mergeadas em `dev`** (PR #50). Geolocalização real e notificações push deixam
+de ser "planejadas" e passam a ser, de fato, parte do backend em produção assim que o deploy no
+Railway rodar a migration pendente. Falta só o hardening ponta a ponta em dispositivo físico,
+que depende do front implementar sua parte (`../squadup-front/.status/roadmap.md` §20, etapas
+5–7 — ainda não iniciadas).
 
 ## 9. Critérios de sucesso do MVP com backend
 
