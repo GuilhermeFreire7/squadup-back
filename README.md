@@ -76,11 +76,13 @@ evita que a tabela cresça indefinidamente sem exigir infraestrutura de schedule
 
 ## Partidas
 
-- `GET /matches` — lista partidas com filtros opcionais via query string: `sport`, `date`, `location` (busca parcial, case-insensitive), `level`, `has_open_slots` (só partidas com vagas disponíveis).
+- `GET /matches` — lista partidas com filtros opcionais via query string: `sport`, `date`, `location` (busca parcial, case-insensitive), `level`, `has_open_slots` (só partidas com vagas disponíveis), e busca geográfica opcional via `lat`/`lng`/`radius_km` (default `20`km) — quando `lat`/`lng` são informados juntos, a listagem é filtrada por raio e ordenada por distância (`distance_km` no corpo da resposta); sem eles, comportamento inalterado.
 - `GET /matches/{id}` — detalhes de uma partida, com `organizer` e `participants` expandidos (perfil público de cada um); `404 MATCH_NOT_FOUND` se não existir.
-- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners` e `requires_approval` são opcionais.
+- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners`, `requires_approval` e `latitude`/`longitude` são opcionais.
 
 `confirmed_count` e `available_slots` são sempre calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca um campo solto no model `Match`, para não divergir da contagem real de participantes.
+
+`latitude`/`longitude` são opcionais nos dois lados (sem geocoding de endereço — só coordenadas reais capturadas via GPS no cliente); a busca por proximidade usa a fórmula de Haversine calculada em Python (`app/services/geo.py`), suficiente para o volume esperado do MVP — não há PostGIS nem índice espacial.
 
 ## Participação em partida
 
@@ -116,6 +118,14 @@ Para chegar a `match.status == closed` sem manipular o banco diretamente, use `P
 - `PATCH /reports/{id}` — aplica uma ação de moderação (`action`: `archive`, `warn` ou `ban`), atualizando `status` da denúncia (`archived`, `warned`, `banned`). Requer `role == admin`; `400 REPORT_ALREADY_RESOLVED` se a denúncia não estiver mais `pending`; `404 REPORT_NOT_FOUND` se não existir.
 
 RBAC mínimo via campo `role` (`user`/`admin`) em `User`, checado pela dependency `app.core.dependencies.get_current_admin` (reutiliza `get_current_user` e adiciona a verificação de papel). Nenhuma ação de moderação tem efeito colateral sobre a conta do usuário denunciado (ex.: `ban` não bloqueia login) — escopo desta fase é replicar as 3 ações já previstas no protótipo do front, não um sistema de enforcement real.
+
+## Notificações push
+
+- `POST /users/me/push-token` — registra (ou realoca, se o token já pertencer a outro usuário — mesmo dispositivo, conta diferente) o Expo Push Token do dispositivo do usuário autenticado. Idempotente por `token` (unique); `204 No Content`.
+
+Push é enviado via Expo Push API (`https://exp.host/--/api/v2/push/send`, chamada direta por `httpx` — sem SDK dedicado) em `app/services/notification_service.py::send_push`, disparado em `BackgroundTasks` (depois que a transação principal já commitou) para 3 eventos: nova mensagem no chat (destinatários: organizador + participantes `confirmed`, exceto quem enviou), participação aprovada (o usuário aprovado) e partida encerrada (participantes `confirmed`, exceto o organizador que encerrou). Falha de entrega (rede fora do ar, token inválido/expirado) nunca propaga erro para o endpoint que originou o evento — só é logada.
+
+`POST /auth/logout-all` também remove todos os push tokens do usuário (encerra sessão em todos os dispositivos, nenhum deveria continuar recebendo notificação); `POST /auth/logout` (um único dispositivo) não remove nenhum, porque o contrato de registro não associa um push token a uma sessão/refresh token específico — não há como saber qual token pertence ao dispositivo que está sendo desconectado sem arriscar remover o de outro dispositivo ainda ativo do mesmo usuário.
 
 ## Testes e qualidade
 
@@ -162,7 +172,7 @@ Passos para o primeiro deploy:
 
 ## Modelo de dados
 
-Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. `RefreshToken` foi adicionado na Fase 11 (fora do `vision.md` original, que não previa rotação de sessão) para suportar `POST /auth/refresh`/`POST /auth/logout`. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
+Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. `RefreshToken` foi adicionado na Fase 11 (fora do `vision.md` original, que não previa rotação de sessão) para suportar `POST /auth/refresh`/`POST /auth/logout`. `PushToken` foi adicionado na Fase 13 (geolocalização real + push) para suportar `POST /users/me/push-token` — múltiplos tokens ativos por usuário (múltiplos dispositivos), sem vínculo com `RefreshToken`. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
 
 Regras de negócio que devem ser aplicadas na camada de serviço (não como colunas soltas): vagas/`status` de partida sempre derivados da contagem de `Participant.status == confirmed`; avaliação só válida com `match.status == closed` e ambos usuários `confirmed`.
 
@@ -177,7 +187,7 @@ A URL do banco é lida de `DATABASE_URL` (`.env`), a mesma fonte de verdade usad
 
 ## Roadmap
 
-Fases 1 a 12 concluídas (auth, partidas, participação, mensagens, avaliações, denúncias, hardening e refinamentos de contrato — ver [`.status/roadmap.md`](.status/roadmap.md) para o detalhe completo). Próxima fase planejada: **Fase 13 — geolocalização real e notificações push** (`.status/roadmap.md` §19), que eram o plano original do produto desde o início. Está registrada com as decisões de design já mapeadas, mas **bloqueada** até a Fase 13 do front (integração real com esta API, hoje ainda 100% mockada — ver `../front/.status/roadmap.md` §19) terminar, para não implementar sobre um contrato de API ainda em mudança.
+Fases 1 a 12 concluídas (auth, partidas, participação, mensagens, avaliações, denúncias, hardening e refinamentos de contrato — ver [`.status/roadmap.md`](.status/roadmap.md) para o detalhe completo). **Fase 13 — geolocalização real e notificações push** (`.status/roadmap.md` §19): as 4 tarefas deste repositório (migration de coordenadas, filtro/ordenação por distância em `GET /matches`, tabela `push_tokens` + endpoint de registro, `notification_service` + disparo nos 3 eventos essenciais) estão concluídas. Falta a etapa conjunta de hardening ponta a ponta em dispositivo físico (push real e GPS real não são testáveis em simulador/CI) — ver `../front/.status/roadmap.md` §20 para o lado do front, ainda não iniciado.
 
 ## Seed de dados de exemplo
 

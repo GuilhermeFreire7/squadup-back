@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import BackgroundTasks, HTTPException, status
 from sqlmodel import Session, select
 
 from app.models.enums import ParticipationStatus
@@ -7,6 +7,8 @@ from app.models.message import Message
 from app.models.participant import Participant
 from app.models.user import User
 from app.schemas.message import MessageCreate, MessageRead
+from app.services.notification_service import send_push
+from app.services.push_token_service import get_push_tokens_for_users
 from app.services.user_service import build_public_profile
 
 MAX_MESSAGES_PAGE_SIZE = 100
@@ -35,6 +37,18 @@ def _ensure_can_access_chat(session: Session, match: Match, user: User) -> None:
             "message": "Apenas o organizador ou participantes confirmados podem acessar o chat.",
         },
     )
+
+
+def _confirmed_recipient_ids(session: Session, match: Match, exclude_user_id: str) -> list[str]:
+    participant_ids = session.exec(
+        select(Participant.user_id).where(
+            Participant.match_id == match.id,
+            Participant.status == ParticipationStatus.CONFIRMED,
+        )
+    ).all()
+    recipient_ids = {*participant_ids, match.organizer_id}
+    recipient_ids.discard(exclude_user_id)
+    return list(recipient_ids)
 
 
 def build_message_read(session: Session, message: Message) -> MessageRead:
@@ -71,7 +85,11 @@ def list_messages(
 
 
 def create_message(
-    session: Session, match_id: str, payload: MessageCreate, user: User
+    session: Session,
+    match_id: str,
+    payload: MessageCreate,
+    user: User,
+    background_tasks: BackgroundTasks | None = None,
 ) -> MessageRead:
     match = _get_match_or_404(session, match_id)
     _ensure_can_access_chat(session, match, user)
@@ -80,4 +98,16 @@ def create_message(
     session.add(message)
     session.commit()
     session.refresh(message)
+
+    if background_tasks is not None:
+        recipient_ids = _confirmed_recipient_ids(session, match, exclude_user_id=user.id)
+        tokens = get_push_tokens_for_users(session, recipient_ids)
+        background_tasks.add_task(
+            send_push,
+            tokens,
+            match.title,
+            message.text,
+            {"type": "new_message", "matchId": match.id},
+        )
+
     return build_message_read(session, message)

@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlmodel import Session
 
 from app.core.database import get_session
@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.errors import AUTH_ERRORS, error_responses
 from app.schemas.match import MatchCreate, MatchDetailRead, MatchRead
 from app.services.match_service import (
+    DEFAULT_SEARCH_RADIUS_KM,
     approve_participant,
     close_match,
     create_match,
@@ -43,7 +44,8 @@ def create_new_match(
     response_model=list[MatchRead],
     summary="Listar partidas",
     description="Lista partidas com filtros opcionais por esporte, data, local, nível e "
-    "disponibilidade de vagas.",
+    "disponibilidade de vagas. Quando `lat`/`lng` são informados, filtra por raio (`radius_km`, "
+    "default 20km) e ordena por distância; sem eles, o comportamento é o de sempre.",
 )
 def read_matches(
     sport: Sport | None = Query(default=None, examples=[Sport.FOOTBALL]),
@@ -51,6 +53,9 @@ def read_matches(
     location: str | None = Query(default=None, examples=["Botafogo"]),
     level: ExperienceLevel | None = Query(default=None, examples=[ExperienceLevel.INTERMEDIATE]),
     has_open_slots: bool = Query(default=False, examples=[True]),
+    lat: float | None = Query(default=None, ge=-90, le=90, examples=[-22.9519]),
+    lng: float | None = Query(default=None, ge=-180, le=180, examples=[-43.1889]),
+    radius_km: float = Query(default=DEFAULT_SEARCH_RADIUS_KM, gt=0, examples=[20.0]),
     session: Session = Depends(get_session),
 ) -> list[MatchRead]:
     return list_matches(
@@ -60,6 +65,9 @@ def read_matches(
         location=location,
         level=level,
         has_open_slots=has_open_slots,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
     )
 
 
@@ -137,10 +145,11 @@ def leave_match_route(
 )
 def close_match_route(
     match_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> MatchRead:
-    return close_match(session, match_id, current_user)
+    return close_match(session, match_id, current_user, background_tasks)
 
 
 @router.post(
@@ -160,7 +169,8 @@ def close_match_route(
 def approve_participant_route(
     match_id: str,
     user_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> MatchRead:
-    return approve_participant(session, match_id, user_id, current_user)
+    return approve_participant(session, match_id, user_id, current_user, background_tasks)

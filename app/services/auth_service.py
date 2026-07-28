@@ -15,6 +15,7 @@ from app.core.security import (
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.services.push_token_service import revoke_all_push_tokens
 
 INVALID_REFRESH_TOKEN = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,7 +113,15 @@ def revoke_refresh_token(session: Session, refresh_token: str) -> None:
 
 
 def revoke_all_refresh_tokens(session: Session, user_id: str) -> int:
-    """Revoga todos os refresh tokens ativos de um usuário. Retorna quantos foram revogados."""
+    """Revoga todos os refresh tokens ativos de um usuário. Retorna quantos foram revogados.
+
+    Também remove todos os push tokens do usuário: `logout-all` encerra sessão em todos os
+    dispositivos, então nenhum deles deveria continuar recebendo notificação. O `logout`
+    (`revoke_refresh_token`) de um único dispositivo não faz o mesmo — o contrato de
+    `POST /users/me/push-token` não associa o token a um refresh token/dispositivo específico,
+    então não há como saber qual push token pertence à sessão que está sendo encerrada sem
+    arriscar remover o de outro dispositivo ainda ativo do mesmo usuário.
+    """
     active_tokens = session.exec(
         select(RefreshToken).where(
             RefreshToken.user_id == user_id,
@@ -123,6 +132,9 @@ def revoke_all_refresh_tokens(session: Session, user_id: str) -> int:
         token.revoked = True
         session.add(token)
     session.commit()
+
+    revoke_all_push_tokens(session, user_id)
+
     return len(active_tokens)
 
 

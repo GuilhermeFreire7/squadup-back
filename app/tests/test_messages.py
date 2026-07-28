@@ -295,3 +295,39 @@ def test_list_messages_returns_404_for_unknown_match(
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "MATCH_NOT_FOUND"
+
+
+def test_send_message_sends_push_to_confirmed_participants_excluding_sender(
+    db_client: tuple[TestClient, Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session = db_client
+    organizer_token = _register_and_login(client)
+    organizer_headers = {"Authorization": f"Bearer {organizer_token}"}
+    me = client.get("/users/me", headers=organizer_headers).json()
+    organizer = session.get(User, me["id"])
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer)
+
+    player_token = _register_and_login(client, email="player@example.com")
+    player_headers = {"Authorization": f"Bearer {player_token}"}
+    player = client.get("/users/me", headers=player_headers).json()
+    _confirm_participant(session, match.id, player["id"])
+    client.post(
+        "/users/me/push-token", json={"token": "organizer-token"}, headers=organizer_headers
+    )
+    client.post("/users/me/push-token", json={"token": "player-token"}, headers=player_headers)
+
+    sent_tokens: list[str] = []
+    monkeypatch.setattr(
+        "app.services.notification_service.httpx.post",
+        lambda url, json, timeout: sent_tokens.extend(m["to"] for m in json),
+    )
+
+    response = client.post(
+        f"/matches/{match.id}/messages",
+        json={"text": "Bora jogar!"},
+        headers=organizer_headers,
+    )
+
+    assert response.status_code == 201
+    assert sent_tokens == ["player-token"]

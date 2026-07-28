@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from app.models.match import Match
     from app.models.message import Message
     from app.models.participant import Participant
+    from app.models.push_token import PushToken
     from app.models.rating import Rating
     from app.models.refresh_token import RefreshToken
     from app.models.report import Report
@@ -52,3 +53,4 @@ class User(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "Report.reporter_user_id"},
     )
     refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
+    push_tokens: list["PushToken"] = Relationship(back_populates="user")

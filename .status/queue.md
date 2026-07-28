@@ -6,7 +6,7 @@
 
 _Fases 1 a 12 concluídas (ver `progress.md`). Fase 12 encerrada e commitada (3 commits) na branch `feature/fase-12-infra-final` (cortada de `dev` em 2026-07-08) — hospedagem decidida (Railway) e `POST /auth/logout-all` implementado. Ainda **sem push/PR** dessa branch — só quando o usuário pedir. Verificado com o repositório do front (pasta local `squadup-app`, remote `squadup-app`) que a Etapa 1 do plano mestre de integração está de fato encerrada e nada bloqueia a Fase 13 de lá._
 
-_**Fase 13 (geolocalização real + notificações push) registrada em 2026-07-08 — DESTRAVADA em 2026-07-16 (sessão 29 do front).** Era o plano original do produto, o autor confirmou que quer implementar de fato. Detalhamento completo em `roadmap.md` §19. A Fase 13 do front (integração real, pré-requisito) está 100% concluída (16/16, sessão 28) — o front avançou nesta sessão o desenho conjunto completo, consolidado em `../squadup-app/.status/backend-contract.md` §6-A (contrato de API, decisões D-Geo-3/4 e D-Push-3/4 novas, complementando as D-Geo-1/2 e D-Push-1/2 já registradas aqui). **Existe agora uma fila executável de código para este repositório** — ver "Próxima tarefa — Fase 13" abaixo, que substitui a antiga observação de "nada a fazer"._
+_**Fase 13 (geolocalização real + notificações push) registrada em 2026-07-08 — DESTRAVADA em 2026-07-16 (sessão 29 do front).** Era o plano original do produto, o autor confirmou que quer implementar de fato. Detalhamento completo em `roadmap.md` §19. **Tarefas 1–4 (deste repositório) concluídas em 2026-07-28** na branch `feature/fase-13-geo-push` — ver "Checkpointer — sessão 30" abaixo. Falta só a etapa 8 (hardening ponta a ponta em dispositivo físico), que depende do front implementar as etapas 5–7 (`../squadup-app/.status/roadmap.md` §20) primeiro._
 
 ## Bloqueios
 
@@ -85,10 +85,15 @@ concluída — ver detalhe abaixo, "Checkpointer".
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 1 | Migration `latitude: float \| null`, `longitude: float \| null` em `Match`; `MatchCreate`/`MatchRead`/`MatchDetailRead` atualizados | ⚪ |
-| 2 | `GET /matches` ganha `lat`/`lng`/`radius_km` (query params opcionais, default `radius_km=20`); filtro por Haversine (SQL puro ou Python pós-bounding-box, sem PostGIS); ordenação por distância quando os 3 params vierem juntos; testes cobrindo partida dentro/fora do raio | ⚪ |
-| 3 | Tabela `push_tokens` (`id`, `user_id → users.id`, `token` unique, `created_at`); `POST /users/me/push-token` (upsert idempotente); revogação de push tokens em `POST /auth/logout`/`logout-all` | ⚪ |
-| 4 | `app/services/notification_service.py` (`send_push(user_id, title, body, data)` via `expo-server-sdk`, nunca propaga exceção — falha de entrega só loga, D-Push-4); disparo via `BackgroundTasks` nos 3 eventos: nova mensagem (`message_service`), participação aprovada (`match_service.approve_participant`), partida encerrada/cancelada (`match_service.close_match`); testes com cliente Expo mockado (nunca bater na Expo real em `pytest`) | ⚪ |
+| 1 | Migration `latitude: float \| null`, `longitude: float \| null` em `Match`; `MatchCreate`/`MatchRead`/`MatchDetailRead` atualizados | 🟢 |
+| 2 | `GET /matches` ganha `lat`/`lng`/`radius_km` (query params opcionais, default `radius_km=20`); filtro por Haversine (SQL puro ou Python pós-bounding-box, sem PostGIS); ordenação por distância quando os 3 params vierem juntos; testes cobrindo partida dentro/fora do raio | 🟢 |
+| 3 | Tabela `push_tokens` (`id`, `user_id → users.id`, `token` unique, `created_at`); `POST /users/me/push-token` (upsert idempotente); revogação de push tokens em `POST /auth/logout`/`logout-all` | 🟢 |
+| 4 | `app/services/notification_service.py` (`send_push(user_id, title, body, data)` via `expo-server-sdk`, nunca propaga exceção — falha de entrega só loga, D-Push-4); disparo via `BackgroundTasks` nos 3 eventos: nova mensagem (`message_service`), participação aprovada (`match_service.approve_participant`), partida encerrada/cancelada (`match_service.close_match`); testes com cliente Expo mockado (nunca bater na Expo real em `pytest`) | 🟢 |
+
+**Concluídas em 2026-07-28 (branch `feature/fase-13-geo-push`)** — ver "Checkpointer — sessão 30"
+abaixo para o detalhe completo e os desvios de design em relação ao texto acima (ex.: `httpx`
+direto em vez de `expo-server-sdk`, que não existe como pacote Python maduro; `distance_km`
+novo no `MatchRead`; `logout` de um único dispositivo não revoga push tokens, só `logout-all`).
 
 **Ordem de dependência:** etapas 1–2 (geo) e 3 (push, tabela+endpoint) são independentes entre
 si e podem ser feitas em paralelo/qualquer ordem. Etapa 4 depende só da 3. Nenhuma delas depende
@@ -206,3 +211,51 @@ e na fila executável acima, "Próxima tarefa — Fase 13").
 - **Próximo passo sugerido:** iniciar pelas etapas 1–2 (geolocalização, `roadmap.md` §19.1) ou
   3–4 (push, §19.2) — são trilhas independentes entre si, ordem livre. Recomendação: geo primeiro
   (menor superfície de mudança, sem dependência de biblioteca externa de push), depois push.
+
+## Checkpointer — sessão 30 (2026-07-28), atualiza o estado acima
+
+**As 4 tarefas de código da Fase 13 (backend) foram implementadas e validadas nesta sessão.**
+Nome de pasta correto do front nesta máquina: `../squadup-front` (não `../squadup-app`, usado
+nos checkpointers anteriores — mesma dívida de nome de pasta por máquina já registrada acima).
+
+- **Branch atual:** `feature/fase-13-geo-push` (cortada de `dev`), commitada nesta sessão,
+  **sem push/PR** (só quando o usuário pedir).
+- **Desvios em relação ao texto original de `roadmap.md` §19/`queue.md`:**
+  - `expo-server-sdk` não existe como pacote Python maduro — usado `httpx` (já dependência do
+    projeto) chamando a Expo Push API diretamente em `app/services/notification_service.py`.
+    `httpx` foi promovido de dependência de teste para dependência de runtime no
+    `requirements.txt`.
+  - `MatchRead` ganhou um campo novo não previsto no plano original: `distance_km: float | null`,
+    presente só quando a busca informou `lat`/`lng` — sem ele, o front não teria como exibir
+    "3,2 km" no `MatchCard` sem recalcular a distância no cliente.
+  - Revogação de push token em logout **não é simétrica** entre `POST /auth/logout` e
+    `POST /auth/logout-all`: só o `logout-all` remove os push tokens do usuário (encerra sessão
+    em todos os dispositivos, então nenhum deveria continuar recebendo notificação). O `logout`
+    de um único dispositivo não remove nada — o contrato de `POST /users/me/push-token` (`{
+    token }`, sem referência a um refresh token) não dá meios de saber qual push token pertence
+    à sessão que está sendo encerrada, e remover todos seria quebrar notificação em outros
+    dispositivos ainda ativos do mesmo usuário. Documentado como decisão consciente em
+    `auth_service.revoke_all_refresh_tokens` (docstring) e em `roadmap.md` §19.
+  - Filtro geográfico calculado 100% em Python (`app/services/geo.py::haversine_km`) após buscar
+    o resultado dos outros filtros via SQL — sem SQL geográfico nem PostGIS, conforme já
+    recomendado no plano original.
+- **Testes novos:** `test_geo.py` (Haversine), `test_notification_service.py` (Expo mockado via
+  `monkeypatch`, nunca bate na rede real), `test_push_token_service.py` (idempotência, realocação
+  de dono, revogação em massa), mais casos novos em `test_matches.py` (filtro/ordenação por
+  raio, exclusão de partidas sem coordenadas, push em `close`/`approve`), `test_messages.py`
+  (push em nova mensagem) e `test_auth.py` (push tokens removidos em `logout-all`).
+- **Gate completo verde:** `pytest` (138 testes, 99.20% cobertura — era 113/96.26% antes desta
+  sessão), `ruff check` limpo, `black --check` limpo, `mypy app` (strict) limpo, `bandit -c
+  pyproject.toml -r app --exclude app/tests -ll` (mesma invocação do CI) sem issues. Migrations
+  aplicadas e validadas via `alembic upgrade head` + `alembic check` (sem drift) contra o SQLite
+  local. `/openapi.json` conferido via `TestClient`: `GET /matches` expõe `lat`/`lng`/`radius_km`,
+  `POST /users/me/push-token` presente, `/health` 200.
+- **README.md atualizado** (seções "Partidas", nova seção "Notificações push", "Modelo de
+  dados", "Roadmap") conforme exigido pelo `CLAUDE.md` §0 deste repositório.
+- **O que falta para fechar a Fase 13 por completo:** só a etapa 8 (hardening ponta a ponta em
+  dispositivo físico + push real), que depende do front implementar as etapas 5–7
+  (`../squadup-front/.status/roadmap.md` §20) primeiro — fora do escopo desta sessão, que era
+  só o backend.
+- **Próximo passo sugerido:** revisar/commitar esta branch (ainda não commitada — ver estado do
+  working tree), depois abrir PR para `dev` quando o usuário pedir. Depois disso, o trabalho
+  simétrico do front (`../squadup-front`, Fase 14 de lá) pode começar sem bloqueio de contrato.
