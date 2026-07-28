@@ -1,6 +1,6 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-08. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`** (não `main` — `main` está atrasada e ainda não recebeu Fase 1/CI). Para o histórico de tarefas concluídas (Fase 1 a 10, CI, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-08. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30, fast-forward `440ef35..30eb5d9`) e está em dia com `dev`. Para o histórico de tarefas concluídas (Fase 1 a 10, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
@@ -17,7 +17,7 @@ _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste
 ## Dívidas técnicas conhecidas
 
 - **`POST /auth/logout` (single-device) não revoga o push token do dispositivo que está saindo** — só `POST /auth/logout-all` remove push tokens (todos os do usuário, ver `auth_service.revoke_all_refresh_tokens`). O contrato de `POST /users/me/push-token` (`{ token }`) não associa o token a uma sessão/refresh token específico, então não há como saber com segurança qual push token pertence ao dispositivo saindo sem arriscar remover o de outro dispositivo ainda ativo do mesmo usuário. Efeito prático: um usuário que só desloga em 1 de N dispositivos continua podendo receber push nesse dispositivo até o token expirar/falhar na Expo (`DeviceNotRegistered`) ou até um `logout-all`. Baixa prioridade — não afeta segurança de dados, só higiene de notificação. Se isso incomodar no futuro, a correção exigiria ampliar o contrato de `POST /users/me/push-token` para receber um identificador de sessão/device, o que é mudança de contrato (envolve o front). Descoberto na sessão 30 (2026-07-28) ao implementar a Fase 13, etapa 3.
-- **Migration da Fase 13 (`latitude`/`longitude` em `Match`, tabela `push_tokens`) ainda não foi aplicada em produção (Railway)** — só validada localmente via SQLite (`alembic upgrade head` + `alembic check`, sessão 30). Rodar `alembic upgrade head` no ambiente de produção antes de qualquer teste do front contra a API de produção (`https://squadup-api.up.railway.app`) que dependa de `lat`/`lng`/`radius_km` ou `POST /users/me/push-token` — do contrário, esses endpoints vão falhar em produção mesmo estando corretos localmente.
+- ~~Migration da Fase 13 não aplicada em produção~~ **Resolvida em 2026-07-28 (sessão 30):** o serviço Railway (`squadup-api.up.railway.app`) rastreia `dev` com auto-deploy ativado; o deploy do commit `550516c` (que já carrega o PR #50) rodou com sucesso (`Procfile`: `alembic upgrade head && uvicorn ...`). Confirmado via requisição real: `GET /health` → 200, `GET /matches?lat=-23.5&lng=-46.6&radius_km=20` → 200 (sem erro de coluna inexistente). `lat`/`lng`/`radius_km` e `POST /users/me/push-token` estão operacionais em produção.
 
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
@@ -76,12 +76,16 @@ primeira vez (fast-forward `440ef35..30eb5d9`, sem conflitos, push confirmado pe
 a dívida técnica de `main` atrasada está resolvida. `main` e `dev` agora apontam para o mesmo
 commit.
 
-O que ainda não está bloqueado e pode avançar, se o usuário quiser: executar de fato o primeiro
-deploy no Railway e **rodar a migration pendente da Fase 13** (`alembic upgrade head`) no
-ambiente de produção — sem isso, `lat`/`lng`/`radius_km` e `POST /users/me/push-token` vão
-falhar em produção mesmo estando corretos localmente (ver dívida técnica acima). Essa ação
-depende do painel/CLI do Railway (credenciais do usuário), não é executável direto neste
-ambiente.
+**Atualização (2026-07-28, sessão 30 — verificação pós-push):** o serviço Railway já rastreia
+`dev` com auto-deploy ativado; o push do commit `550516c` disparou um novo deploy, que subiu com
+sucesso e já traz o `alembic upgrade head` da Fase 13 aplicado. Confirmado em produção via
+`GET /health` (200) e `GET /matches?lat=...&lng=...&radius_km=20` (200, sem erro de schema).
+Migration pendente da Fase 13 **resolvida** — ver dívida técnica acima.
+
+Com isso, a Fase 13 está tecnicamente completa do lado de infraestrutura/deploy; só falta a
+etapa 8 (hardening ponta a ponta em dispositivo físico), que segue bloqueada pelo front
+(`../squadup-front/.status/roadmap.md` §20, ainda não iniciado). Nenhuma ação de código ou de
+infraestrutura pendente neste repositório neste momento.
 
 ## Notas
 
@@ -107,7 +111,15 @@ ambiente.
 Branch `feature/fase-13-geo-push` já pode ser deletada (local e remota) quando o usuário quiser
 — seu conteúdo já está em `dev`.
 
-- **Estado do repositório:** branch `dev`, working tree limpo, sincronizado com `origin/dev`.
+- **Estado do repositório:** branch `dev`, working tree limpo, sincronizado com `origin/dev` e
+  `origin/main` (ambos no commit `550516c`). `main` promovida pela primeira vez nesta sessão
+  (fast-forward `440ef35..30eb5d9`, sem conflitos, push feito pelo usuário) — dívida técnica de
+  `main` atrasada resolvida.
+- **Deploy em produção (Railway) confirmado:** serviço `squadup-api.up.railway.app` rastreia
+  `dev` com auto-deploy ativado; o deploy do commit `550516c` (já com a Fase 13 embutida) subiu
+  com sucesso. Migration `alembic upgrade head` aplicada em produção — verificado via
+  `GET /health` (200) e `GET /matches?lat=-23.5&lng=-46.6&radius_km=20` (200, sem erro de
+  schema). Dívida técnica da migration pendente em produção **resolvida**.
 - **O que foi entregue** (detalhe completo em `progress.md` §"Fase 13 — tarefas 1–4 concluídas"):
   migration `latitude`/`longitude` em `Match` + filtro/ordenação por distância (Haversine) em
   `GET /matches` (`lat`/`lng`/`radius_km`, novo campo `distance_km` em `MatchRead`); tabela
@@ -124,7 +136,6 @@ Branch `feature/fase-13-geo-push` já pode ser deletada (local e remota) quando 
 - **O que falta para fechar a Fase 13 por completo:** só a etapa 8 (hardening ponta a ponta em
   dispositivo físico, geo + push reais), que depende do front implementar as etapas 5–7 primeiro
   (`../squadup-front/.status/roadmap.md` §20 — Fase 14 de lá, ainda 0% iniciada nesta data).
-- **Próximo passo sugerido:** nenhum trabalho de código pendente aqui até o front avançar. Se o
-  usuário quiser adiantar algo neste repositório enquanto isso, as opções não bloqueadas são:
-  aplicar a migration pendente em produção (Railway) antes que o front teste contra produção
-  (dívida técnica acima), ou promover `dev` → `main` pela primeira vez.
+- **Próximo passo sugerido:** nenhum trabalho de código, deploy ou infraestrutura pendente
+  neste repositório. Único item restante para fechar a Fase 13 é a etapa 8 (hardening ponta a
+  ponta em dispositivo físico), bloqueada até o front avançar suas etapas 5–7.
