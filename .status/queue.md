@@ -165,24 +165,40 @@ de mais código de backend.
 > Histórico das sessões 28/29/30 e da primeira parte da sessão 31 (só documentação) arquivado em
 > `progress.md`. Este é o único Checkpointer ativo.
 
-**Nesta continuação da sessão 31, o usuário pediu para implementar todas as dívidas pendentes**
-(T2–T6). Feito na branch `feature/fase-15-dividas-tecnicas` (a partir de `dev`) — ver
-`roadmap.md` §20 e `progress.md` §"Fase 15" para o detalhe completo.
+**Estado exato de parada — nada em andamento, nenhum bug aberto, nenhuma função pela metade.**
+A Fase 15 (T2–T6) foi implementada, validada e **commitada** nesta sessão. Não há trabalho de
+código interrompido — a sessão fechou num ponto limpo. Para retomar:
 
-- **Estado do repositório:** branch `feature/fase-15-dividas-tecnicas`, **não mergeada em
-  `dev`** — decisão de merge fica a critério do usuário numa próxima interação (não mergeado
-  automaticamente nesta sessão). 161 testes (35 novos), 98.87% cobertura, `ruff`/`black`/
-  `mypy --strict`/`bandit -ll`/`alembic check` todos verdes.
-- **T2–T5 concluídas de ponta a ponta.** T6 (gate de qualidade) tem o código pronto
-  (`quality-gate` em `ci.yml`) mas a branch protection do GitHub em si **não foi configurada**
-  — faltou `gh`/acesso à API do GitHub neste ambiente. Ação manual pendente para o usuário: no
-  GitHub, Settings → Branches → proteger `main`/`dev` exigindo o check "Quality Gate (required
-  for merge)".
-- **T4 (upload de avatar) está funcional mas sem credenciais reais** — o código fala com
-  qualquer storage S3-compatible via env vars (`S3_BUCKET`/`S3_ACCESS_KEY_ID`/
-  `S3_SECRET_ACCESS_KEY`, ver `.env.example`), mas nenhuma foi configurada ainda. Sem elas,
-  `POST /users/me/avatar` responde `503 STORAGE_NOT_CONFIGURED` — comportamento esperado, não é
-  bug. Configurar quando um provedor for escolhido para uso real (Railway ou outro ambiente).
+- **Commit exato:** `c860977` — "feat: implementa dividas tecnicas T2-T6 (push por dispositivo,
+  chat WebSocket, upload de avatar, observabilidade, gate de qualidade)", na branch
+  `feature/fase-15-dividas-tecnicas` (criada a partir de `dev`, que estava em `f75435a`).
+  `git status` limpo (working tree sem alterações pendentes) na branch imediatamente após o
+  commit. **Ainda não houve push nem PR** — só commit local, a critério do usuário decidir o
+  próximo passo (push/PR/merge) na próxima sessão.
+- **Build verificado nesta sessão, após o commit:** suíte completa
+  (`SECRET_KEY=ci-test-secret-key python -m pytest`) → 161 passed, 98.87% cobertura (gate 80%);
+  `ruff check .`, `black --check .`, `mypy app` (strict) e
+  `bandit -c pyproject.toml -r app --exclude app/tests -ll` → todos verdes; `alembic upgrade
+  head` + `alembic check` → aplica limpo, sem operação pendente de autogenerate. Também subiu a
+  aplicação de verdade via `uvicorn app.main:app` e confirmou `GET /health` (200) e `GET
+  /metrics` (200, formato Prometheus) respondendo, com log estruturado JSON incluindo
+  `request_id` aparecendo no stdout — tudo funcionando, não só testes unitários.
+- **O que foi implementado (resumo — detalhe completo em `progress.md` §"Fase 15" e
+  `roadmap.md` §20):** T2 (`PushToken.device_id`, logout single-device revoga só aquele token),
+  T3 (`WS /matches/{id}/ws?token=<jwt>`, broadcast cruzado REST↔WS via
+  `app/core/ws_manager.py`), T4 (`POST /users/me/avatar`, storage S3-compatible genérico via
+  `app/services/storage_service.py`), T5 (logs JSON + `request_id` via
+  `app/core/middleware.py`/`app/core/logging.py`, métricas em `GET /metrics` via
+  `app/core/metrics.py`, `loadtest/locustfile.py`), T6 (`quality-gate` em
+  `.github/workflows/ci.yml`).
+- **Duas pendências residuais viraram tarefas novas (T7/T8, seção "Dívidas técnicas e
+  backlog" acima) — nenhuma bloqueante, nenhuma de código:**
+  1. **T7:** nenhuma credencial real de storage foi configurada (`S3_BUCKET`/
+     `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` vazias) — `POST /users/me/avatar` responde
+     `503 STORAGE_NOT_CONFIGURED` até isso ser configurado (comportamento esperado, não bug).
+  2. **T8:** a branch protection do GitHub para exigir o check `quality-gate` **não foi
+     configurada** — não havia `gh`/acesso à API do GitHub disponível neste ambiente. O job
+     roda e reporta, mas ainda não bloqueia merge de código quebrado.
 - **T1 (único item bloqueante de toda a Fase 13/Fase 14, ambos os repositórios) — inalterado:**
   hardening ponta a ponta em dispositivo físico. A build EAS mais recente do front (`fa25bd21`,
   commit `3dcd0dd`) **segue sem confirmação de teste ponta a ponta pelo usuário**. Não é tarefa
@@ -191,7 +207,10 @@ de mais código de backend.
   segue commitada mas aguardando revisão/merge em `dev` do lado de lá — não afeta este
   repositório, é só contexto para não estranhar se o front citar essa branch numa próxima
   conversa.
-- **Próximo passo sugerido para a próxima sessão:** (1) revisar e decidir se `feature/fase-15-dividas-tecnicas`
-  deve ser mergeada em `dev`; (2) configurar manualmente a branch protection do GitHub (T6); (3)
-  perguntar ao usuário se já rodou o hardening em dispositivo físico (T1) — se sim, registrar o
-  resultado e fechar a Fase 13/14 formalmente em `roadmap.md`.
+- **Próximo passo sugerido para a próxima sessão (nenhum é urgente, todos a critério do
+  usuário):** (1) decidir se/quando dar `git push` e abrir PR de
+  `feature/fase-15-dividas-tecnicas` para `dev` (perguntado nesta sessão, usuário optou por
+  fechar a sessão antes de decidir); (2) configurar T7 (credenciais de storage) quando escolher
+  provedor; (3) configurar T8 (branch protection) manualmente no GitHub; (4) perguntar se o
+  usuário já rodou o hardening em dispositivo físico (T1) — se sim, registrar o resultado e
+  fechar a Fase 13/14 formalmente em `roadmap.md`.
