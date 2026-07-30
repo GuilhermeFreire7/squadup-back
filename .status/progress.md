@@ -349,3 +349,72 @@ Com as tarefas 1–4 já mergeadas em `dev` via PR #50 (seção anterior), esta 
 **Resultado:** as duas últimas dívidas técnicas de infraestrutura registradas em `queue.md` desde a Fase 13 (main atrasada; migration não aplicada em produção) estão resolvidas. Nenhuma mudança de código nesta continuação — só git (fast-forward + push) e verificação. Documentação sincronizada em `queue.md`, `roadmap.md` e `README.md`.
 
 **Commits desta continuação:** `550516c` (docs: sincroniza queue.md após promoção de dev para main), `f735cbf` (docs: confirma migration da Fase 13 aplicada em produção).
+
+## Fase 13 — sincronização com o hardening e a limpeza de dívidas do front (sessão 31, 2026-07-30)
+
+Sessão só de documentação — **nenhuma linha de código deste repositório foi alterada.** Desde a
+sessão 30 (acima), o front (`../squadup-front`) rodou mais 5 sessões (31 a 35) que ficaram sem
+eco aqui; esta sessão lê o que aconteceu do lado de lá e sincroniza `vision.md`, `roadmap.md` e
+`queue.md` com o estado atual, a pedido do usuário.
+
+**Resumo do que o front fez nas sessões 31–35 (detalhe completo em
+`../squadup-front/.status/progress.md`):**
+
+1. **Sessões 31–33 (2026-07-28):** front implementou as etapas 5–7 do plano conjunto da Fase 13/14
+   — `useDeviceLocation`, coordenadas reais em `POST /matches`, toggle de proximidade em
+   `FiltersScreen`, `useNotificationRegistration` + navegação por push. Já estava refletido aqui
+   desde a sessão 30 (linha "front concluiu suas etapas 5-7" em `roadmap.md` §19).
+2. **Sessão 34 (2026-07-28/29) — hardening real em dispositivo físico (item 8):** primeira vez que
+   o app rodou fora do sandbox, via build EAS num Android real. Achou e corrigiu 7 bugs (D28–D34),
+   **todos do lado do front** — nenhum é uma inconsistência de contrato deste backend:
+   - D28 (7 telas ainda liam usuário/avaliações mockados em vez do real), D29 (`expo-font`
+     ausente, crash de boot), D30/D31 (teclado cobrindo campo + `completeProfile` não sobrevivia a
+     falha parcial), D32 (sem retry de rede no cliente HTTP do front).
+   - **D33, a mais relevante para este repositório: o front só validava senha com 6+ caracteres,
+     enquanto `RegisterRequest.password` aqui sempre exigiu `min_length=8`** (`app/schemas/auth.py`,
+     desde a Fase 3). **Não era bug deste backend** — o contrato sempre esteve correto; o front é
+     que ficou desalinhado dele. A causa raiz só ficou visível porque o `422` automático do
+     FastAPI/Pydantic (`detail` como lista de `{loc, msg, type}`) caía no fallback genérico de erro
+     do cliente HTTP do front, escondendo a mensagem real — o front corrigiu isso adicionando um
+     parser específico para esse formato (`fromValidationErrors`, `client.ts`). **Nenhuma mudança
+     pedida ou necessária aqui:** o comportamento de retornar `422` com `detail` em lista é o
+     default do FastAPI para erro de validação de schema, documentado, e o front passou a
+     interpretá-lo corretamente. Vale como confirmação de que a Lição de fases anteriores
+     ("nunca campo solto, sempre validação real") também se paga do lado do consumo — um contrato
+     estrito no schema (`min_length=8`) só "funciona" de verdade quando quem consome sabe ler o
+     erro que ele produz.
+   - Build EAS mais recente ao fim da sessão 34: `fa25bd21` (commit `3dcd0dd` do front) —
+     **ainda não testada pelo usuário de ponta a ponta** quando a sessão fechou.
+3. **Sessão 35 (2026-07-30) — limpeza de dívidas técnicas de baixa prioridade do front:** 5
+   dívidas resolvidas (D4 `.editorconfig`, D13 `accessibilityLabel`, D24 mensagem de erro
+   específica para `NOT_MATCH_PARTICIPANT`, D26 aviso de localização, D34 `validateEmail` mais
+   estrita). **D34 é a segunda relevante para este repositório:** o front validava e-mail só com
+   `email.includes("@")`, bem mais permissivo que o `EmailStr` (Pydantic) usado em
+   `RegisterRequest.email` aqui — um valor como `"a@b"` passava no front e só era barrado por este
+   backend com `422`. Mesma conclusão de D33: **não é bug daqui**, o backend sempre validou
+   corretamente; o front só não replicava a mesma régua no cliente antes de fazer a chamada. O
+   front corrigiu extraindo `validateEmail` para `src/utils/validation.ts`, com regex que agora
+   exige domínio+TLD, alinhada ao comportamento real do `EmailStr`. Trabalho feito numa branch
+   separada (`chore/tech-debt-cleanup`, front), commitada mas **ainda não mergeada em `dev`** do
+   lado de lá.
+
+**Confirmação importante para este backend:** nenhum dos 12 achados das sessões 34–35 do front
+(D28–D34, D4/D13/D24/D26/D34 da limpeza) exigiu ou sugeriu qualquer mudança de contrato, schema
+ou comportamento deste repositório. Os dois achados de mismatch (D33 senha, D34 e-mail) confirmam
+que os schemas Pydantic (`RegisterRequest`) sempre estiveram certos — o gap era só o front não
+replicar a mesma validação no cliente antes da chamada de rede. Reforça a mesma lição já registrada
+em `queue.md` desde a Fase 12: os schemas Pydantic deste backend são a fonte única de verdade do
+contrato; qualquer divergência encontrada deve ser corrigida do lado de quem se desviou dela, não
+por relaxar o schema aqui.
+
+**Estado real da Fase 13/14 após a sincronização:** ainda não fechada nos dois repositórios — a
+build `fa25bd21` segue sem confirmação de teste ponta a ponta pelo usuário (cadastro → criar
+partida → chat → filtro de proximidade → push), o mesmo estado documentado desde o fim da sessão
+30 aqui. **Nenhum código, deploy ou infraestrutura pendente neste repositório** — só a
+confirmação externa do teste em dispositivo físico, que não pode ser simulada aqui.
+
+Documentos atualizados nesta sessão: `vision.md` §8 (nota de confirmação de contrato),
+`roadmap.md` (§19, atualização de status), `queue.md` ("Dívidas técnicas conhecidas"
+reestruturada como lista ordenada de tarefas — antes só um bullet solto — e novo Checkpointer).
+`pytest`/`ruff`/`black`/`mypy --strict`/`bandit` reconfirmados verdes (nenhum código mudou, só
+verificação de que o repositório segue são antes de fechar a sessão).

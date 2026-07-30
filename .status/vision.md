@@ -120,6 +120,18 @@ Falta só o hardening ponta a ponta em dispositivo físico, que depende do front
 concluídas (sessões 31–33, 2026-07-28); resta só a etapa 8 (hardening), a única pendência de toda
 a Fase 13/Fase 14 em qualquer um dos dois repositórios.
 
+**Atualização (2026-07-30, sessão 31 — sincronização, sem código novo):** o hardening real em
+dispositivo físico do front (sessão 34) achou 7 bugs, todos do lado do front (D28–D34) — nenhum
+exigiu mudança de contrato aqui. Os dois achados mais próximos deste backend (senha exigindo 8+
+caracteres, e-mail com `EmailStr`) **confirmaram que os schemas Pydantic deste repositório sempre
+estiveram corretos**: o front validava senha com 6+ e e-mail com uma checagem frouxa
+(`includes("@")"`), mais permissivos que `RegisterRequest` aqui — o front corrigiu o lado dele
+para replicar a mesma régua antes da chamada de rede, este backend não precisou mudar nada. Reforça
+o princípio já registrado em `queue.md`: os schemas Pydantic são a fonte única de verdade do
+contrato; divergência encontrada se corrige em quem se desviou dela. Item 8 (hardening) da Fase
+13/14 **continua em aberto** — a build mais recente do front (`fa25bd21`) segue sem confirmação de
+teste ponta a ponta pelo usuário.
+
 ## 9. Critérios de sucesso do MVP com backend
 
 - o front consegue substituir cada Context mockado (`AuthContext`, `MatchesContext`, `MessagesContext`, `RatingsContext`, `ReportsContext`) por chamadas reais via React Query, sem precisar redesenhar telas;

@@ -1,12 +1,12 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-08. Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30, fast-forward `440ef35..30eb5d9`) e está em dia com `dev`. Para o histórico de tarefas concluídas (Fase 1 a 10, CI, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-30 (sessão 31 deste repositório). Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30, fast-forward `440ef35..30eb5d9`) e está em dia com `dev`. Para o histórico de tarefas concluídas (Fase 1 a 10, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
 _Fases 1 a 12 concluídas e mergeadas em `dev` (ver `progress.md`)._
 
-_**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28) — falta só a etapa 8 (hardening ponta a ponta em dispositivo físico, ambos os repositórios) — **nada bloqueado neste repositório neste momento**._
+_**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28); a etapa 8 (hardening ponta a ponta em dispositivo físico) **começou** na sessão 34 do front — achou e corrigiu 7 bugs, todos do lado do front (D28–D34), confirmando o contrato deste backend como correto — mas **segue sem confirmação de teste ponta a ponta pelo usuário** na build mais recente (`fa25bd21`). **Nada bloqueado neste repositório neste momento.**_
 
 ## Bloqueios
 
@@ -14,9 +14,61 @@ _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste
 - Compatibilidade fixada: `bcrypt` pinado em `>=4.0,<4.1` no `requirements.txt` — `passlib[bcrypt]==1.7.4` lê `bcrypt.__about__.__version__`, removido em `bcrypt>=4.1`; sem o pin, `hash_password`/`verify_password` quebram em runtime. Reavaliar se `passlib` for atualizado para uma versão que não dependa desse atributo.
 - **Ambiente de trabalho — correção (2026-07-08):** uma nota de sessão anterior aqui dizia que o repositório do front estava em `c:\Users\Public\workspace-personal\squadup-app`. **Isso estava errado** — esse caminho não existe nesta máquina. O repositório real está em `../front` (pasta local `front`, remote Git `https://github.com/GuilhermeFreire7/squadup-app.git` — o nome "squadup-app" é só do repositório no GitHub, não da pasta local). Confirmado com `git -C ../front remote -v` nesta sessão. `roadmap.md`/`vision.md` deste repositório, que já referenciam `../front`, estavam certos; a nota antiga (e a referência a um commit `b149c96` "no repositório squadup-app" no histórico do checkpointer abaixo) não puderam ser confirmadas e provavelmente eram incorretas.
 
-## Dívidas técnicas conhecidas
+## Dívidas técnicas e backlog — como tarefas ordenadas
 
-- **`POST /auth/logout` (single-device) não revoga o push token do dispositivo que está saindo** — só `POST /auth/logout-all` remove push tokens (todos os do usuário, ver `auth_service.revoke_all_refresh_tokens`). O contrato de `POST /users/me/push-token` (`{ token }`) não associa o token a uma sessão/refresh token específico, então não há como saber com segurança qual push token pertence ao dispositivo saindo sem arriscar remover o de outro dispositivo ainda ativo do mesmo usuário. Efeito prático: um usuário que só desloga em 1 de N dispositivos continua podendo receber push nesse dispositivo até o token expirar/falhar na Expo (`DeviceNotRegistered`) ou até um `logout-all`. Baixa prioridade — não afeta segurança de dados, só higiene de notificação. Se isso incomodar no futuro, a correção exigiria ampliar o contrato de `POST /users/me/push-token` para receber um identificador de sessão/device, o que é mudança de contrato (envolve o front). Descoberto na sessão 30 (2026-07-28) ao implementar a Fase 13, etapa 3.
+> Reestruturado na sessão 31 (2026-07-30) a pedido do usuário — antes só a T1 estava registrada,
+> como um bullet solto. Ordem = prioridade sugerida, não obrigação de sequência estrita (T1 é a
+> única bloqueante; T2 é a única dívida técnica de código real; T3–T6 são evolução de escopo,
+> `roadmap.md` §17, sem data prevista). Todas as etapas são independentes entre si — não há
+> dependência técnica de uma tarefa sobre a anterior, exceto onde indicado.
+
+| # | Tarefa | Tipo | Prioridade | Status |
+|---|--------|------|-----------|--------|
+| T1 | Confirmação de teste ponta a ponta em dispositivo físico (etapa 8 da Fase 13/14) | Bloqueio externo | 🔴 Bloqueante | ⚪ Aguardando o usuário |
+| T2 | `POST /auth/logout` (single-device) não revoga o push token do dispositivo que sai | Dívida técnica | Baixa | ⚪ Aberta |
+| T3 | WebSocket para chat em tempo real | Evolução de escopo | A decidir | ⚪ Não iniciada |
+| T4 | Upload de imagens (avatar, fotos de partida) via storage S3-compatible | Evolução de escopo | A decidir | ⚪ Não iniciada |
+| T5 | Testes de carga e observabilidade (logs estruturados, métricas) | Evolução de escopo | A decidir | ⚪ Não iniciada |
+| T6 | CI/CD automatizado para deploy do backend a cada merge | Evolução de escopo | A decidir | ⚪ Não iniciada |
+
+### T1 — Confirmação de teste ponta a ponta em dispositivo físico
+
+Não é uma tarefa de código deste repositório — é a única pendência real de toda a Fase 13/14, em
+ambos os repositórios. O front precisa confirmar que a build EAS `fa25bd21` (commit `3dcd0dd`)
+completa o fluxo cadastro → criar partida → chat → filtro de proximidade → push numa passada só,
+num Android físico. Quando isso acontecer, o próximo passo aqui é só registrar o resultado e
+fechar a Fase 13 formalmente em `roadmap.md`. Ver "Checkpointer" abaixo para o estado exato.
+
+### T2 — Push token não revogado em logout de um único dispositivo
+
+Só `POST /auth/logout-all` remove push tokens (todos os do usuário, ver
+`auth_service.revoke_all_refresh_tokens`). O contrato de `POST /users/me/push-token` (`{ token
+}`) não associa o token a uma sessão/refresh token específico, então não há como saber com
+segurança qual push token pertence ao dispositivo saindo sem arriscar remover o de outro
+dispositivo ainda ativo do mesmo usuário. Efeito prático: um usuário que só desloga em 1 de N
+dispositivos continua podendo receber push nesse dispositivo até o token expirar/falhar na Expo
+(`DeviceNotRegistered`) ou até um `logout-all`. Baixa prioridade — não afeta segurança de dados,
+só higiene de notificação. Se resolver: ampliar o contrato de `POST /users/me/push-token` para
+receber um identificador de sessão/device — é mudança de contrato, envolve o front. Descoberto na
+sessão 30 (2026-07-28) ao implementar a Fase 13, etapa 3.
+
+### T3–T6 — Evolução de escopo pós-Fase 13/14 (`roadmap.md` §17)
+
+Nenhuma destas quatro tem data ou decisão de "vai fazer" — são a lista de possíveis próximas
+frentes depois que a Fase 13/14 fechar de vez (T1 resolvido), na mesma lista já registrada em
+`roadmap.md` §17 desde a origem do repositório, sem mudança de conteúdo nesta sessão:
+
+- **T3 — WebSocket para chat em tempo real:** hoje `GET/POST /matches/{id}/messages` é REST puro
+  (poll/refetch no front); só vira prioridade se o polling atual se mostrar insuficiente para a
+  demo ou para uso real.
+- **T4 — Upload de imagens via storage S3-compatible:** hoje `photo_url` (usuário) é só uma URL
+  externa; sem upload real de arquivo em nenhuma tela.
+- **T5 — Testes de carga e observabilidade:** sem logs estruturados nem métricas hoje além do
+  logging padrão do `uvicorn`/exceções — relevante só se o volume de uso real justificar.
+- **T6 — CI/CD automatizado para deploy a cada merge:** hoje o deploy em produção (Railway) é
+  auto-deploy simples atrelado à branch `dev` (sem pipeline de CI/CD dedicado para o deploy em
+  si, distinto do CI de lint/test/security já existente); formalizar isso só se o ritmo de
+  releases justificar o investimento.
 
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
@@ -48,18 +100,21 @@ _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste
 - **Fechamento de partida é a única transição manual de `status`** — diferente de `open`/`full` (sempre recalculados por `_sync_match_status` a partir da contagem de `Participant.status == confirmed`, lição da Fase 7), `closed` via `POST /matches/{id}/close` é setado diretamente pelo serviço porque não há como derivá-lo de nenhuma contagem — é uma decisão do organizador, não um estado calculável. Não confundir esse caso com a regra "nunca campo solto": aqui não há duplicação de fonte de verdade, só não há fonte derivável.
 - **Migration gerada por `alembic revision --autogenerate` não segue o estilo do projeto por padrão** — o `alembic/script.py.mako` ainda usava `typing.Union`/`typing.Sequence` (padrão antigo do template do Alembic) em vez do estilo `X | Y` já usado na migration inicial (`70043fe6862c`) e exigido pelo resto do código (`ruff`/`black`). Corrigido o template para gerar já no formato certo; revisar/rodar `black`+`ruff` em qualquer migration nova mesmo assim, pois o autogenerate não formata o SQL gerado (linhas longas em `op.create_index`, por exemplo).
 
-## Próxima tarefa — Fase 13: hardening conjunto (etapa 8, único item restante do backend)
+## Próxima tarefa — T1 (Fase 13: hardening conjunto, etapa 8, único item bloqueante)
 
 > Tarefas 1–4 (código deste repositório) **concluídas e mergeadas em `dev`** (PR #50,
 > 2026-07-28) — detalhe tarefa-a-tarefa em `progress.md` §"Fase 13 — tarefas 1–4 concluídas".
 > Detalhamento completo do plano mestre em `roadmap.md` §19 e no contrato consolidado
 > `../squadup-front/.status/backend-contract.md` §6-A.
 
-Item que falta para fechar a Fase 13 por completo: **etapa 8 — hardening ponta a ponta em
-dispositivo físico**, testando geolocalização real (GPS) e push real (Expo). O front já concluiu
-as etapas 5–7 (geolocalização e push, sessões 31–33, 2026-07-28) — a etapa 8 é o **único item
-restante de toda a Fase 13/Fase 14**, em ambos os repositórios. Nenhuma ação de código pendente
-neste repositório até lá.
+Item que falta para fechar a Fase 13 por completo: **T1 / etapa 8 — hardening ponta a ponta em
+dispositivo físico**, testando geolocalização real (GPS) e push real (Expo). O front concluiu as
+etapas 5–7 (geolocalização e push, sessões 31–33, 2026-07-28) e **começou** a etapa 8 na sessão
+34 (achou e corrigiu 7 bugs, todos do lado do front — ver `progress.md` §"sincronização com o
+hardening..."), mas a build mais recente (`fa25bd21`) segue sem confirmação de teste ponta a
+ponta pelo usuário. T1 é o **único item bloqueante de toda a Fase 13/Fase 14**, em ambos os
+repositórios. Nenhuma ação de código pendente neste repositório até lá — ver também T2–T6 (seção
+"Dívidas técnicas e backlog") para o que existe além dessa pendência, nenhum deles bloqueante.
 
 ## Plano de entrega final (app + backend + TCC)
 
@@ -72,12 +127,15 @@ Fases 1 a 12 concluídas; Fase 13 (backend) com as 4 tarefas de código concluí
 confirmada rodando em produção (Railway) — ver `progress.md` §"Fase 13 — main promovida e
 migration confirmada em produção" para o detalhe completo dessa continuação da sessão 30. Do
 lado do front, as etapas 5–7 (geolocalização real e push real) também já foram concluídas
-(sessões 31–33, `../squadup-front/.status/roadmap.md` §20).
+(sessões 31–33, `../squadup-front/.status/roadmap.md` §20), e a etapa 8 (hardening) **começou**
+na sessão 34 — ver T1 acima e o Checkpointer abaixo para o estado exato.
 
 **Nada de código, deploy ou infraestrutura está pendente neste repositório.** O único item
-restante de toda a Fase 13/Fase 14 (em ambos os repositórios) é a **etapa 8 — hardening ponta a
-ponta em dispositivo físico** (GPS real + push real), que só pode ser feita com um device físico
-e depende do usuário/front avançar, não de mais código de backend.
+bloqueante de toda a Fase 13/Fase 14 (em ambos os repositórios) é **T1 — hardening ponta a ponta
+em dispositivo físico** (GPS real + push real), que só pode ser feita com um device físico e
+depende do usuário/front avançar, não de mais código de backend. T2–T6 (seção "Dívidas técnicas
+e backlog") existem mas nenhum é bloqueante nem tem prazo — só entram em jogo se/quando o usuário
+decidir priorizá-los, depois que T1 fechar.
 
 ## Notas
 
@@ -87,39 +145,61 @@ e depende do usuário/front avançar, não de mais código de backend.
 - `app.core.dependencies.get_current_user` (criada na Fase 3) é a dependency padrão para exigir autenticação em qualquer router novo — usar `Depends(get_current_user)` em vez de reimplementar decodificação de JWT.
 - Regra `B008` do `ruff` está no ignore list (`pyproject.toml`) por causa do idiom `Depends(...)` do FastAPI — não reverter isso achando que é lint solto.
 
+## Lições das sessões 34–35 do front (aplicar ao revisar código futuro)
+
+- **Um schema Pydantic estrito só "funciona" de ponta a ponta se quem consome sabe ler o erro que
+  ele produz** — `RegisterRequest.password` (`min_length=8`) e `RegisterRequest.email` (`EmailStr`)
+  sempre estiveram corretos aqui, mas o front só percebeu os dois mismatches (validava senha com
+  6+, e-mail com uma checagem frouxa) porque o `422` automático do FastAPI/Pydantic (`detail` como
+  lista de `{loc, msg, type}`, formato diferente do nosso `{code, message}` costumeiro) caía no
+  fallback genérico de erro do cliente HTTP do front, escondendo a causa real até uma sessão de
+  hardening em dispositivo físico expor o problema. Não é uma lição de mudança de código aqui — é
+  um lembrete para o futuro: ao desenhar qualquer schema novo com validação estrita (`min_length`,
+  `EmailStr`, `pattern`, etc.), vale checar se quem consome (front ou qualquer outro cliente) tem
+  como enxergar a mensagem real do `422`, não só assumir que "o schema documenta a regra" é
+  suficiente.
+
 ## Lições da sessão 22 (aplicar ao revisar código futuro)
 
 - **`pydantic-settings` decodifica campos complexos (`list[str]`) como JSON antes de qualquer `field_validator` rodar** — um `CORS_ORIGINS=a,b,c` no `.env` quebra com `SettingsError`/`JSONDecodeError` a menos que o campo seja anotado com `Annotated[list[str], NoDecode]` (`pydantic_settings.NoDecode`), que desliga esse parsing automático e deixa o `field_validator(mode="before")` fazer o split manual. Usar esse padrão para qualquer settings futura que precise de uma lista vinda de env var como string separada por vírgula.
 - **`mypy` (strict) não aceita `Coluna == True`/`Coluna.is_(True)` em atributos `bool` do SQLModel** — o SQLModel tipa o atributo estaticamente como `bool` do Python, não como `InstrumentedAttribute`, então `.is_()` não existe nesse tipo aos olhos do mypy. Usar `sqlmodel.col(Model.campo).is_(True)` para sinalizar explicitamente que é uma coluna SQLAlchemy. Ao combinar com `|` (or bitwise) em `where()`, colocar a expressão `col(...).is_(...)` primeiro no `|` — `bool_column < valor | col(...).is_(True)` com a comparação primeiro faz o mypy tentar resolver via `bool.__or__` e falha (`No overload variant of "__or__" of "bool"`).
 - **Rotina de purge sem scheduler dedicado:** para o volume esperado do MVP, purge de linhas obsoletas (`refresh_tokens` expirados/revogados) rodando uma vez por inicialização da API, dentro do `lifespan` (mesmo padrão de `create_db_and_tables()`), é suficiente — não é necessário introduzir Celery/cron externo só para isso. Reavaliar só se o padrão de deploy (várias réplicas subindo/descendo com frequência, sem período de baixo tráfego) tornar o purge-no-startup ineficaz.
 
-## Checkpointer — retomar aqui na próxima sessão (sessão 30, encerrada em 2026-07-28)
+## Checkpointer — retomar aqui na próxima sessão (sessão 31, encerrada em 2026-07-30)
 
-> Histórico das sessões 28/29 (Fase 12 encerrada, Fase 13 destravada e desenhada) arquivado em
-> `progress.md`. Este é o único Checkpointer ativo — os anteriores foram consolidados lá
-> (§"Fase 13 — tarefas 1–4 concluídas" e §"Fase 13 — main promovida e migration confirmada em
-> produção").
+> Histórico das sessões 28/29/30 arquivado em `progress.md`. Este é o único Checkpointer ativo —
+> os anteriores foram consolidados lá (§"Fase 13 — tarefas 1–4 concluídas", §"Fase 13 — main
+> promovida e migration confirmada em produção" e §"Fase 13 — sincronização com o hardening e a
+> limpeza de dívidas do front").
 
-**Não há bug em aberto, nem tarefa de código, deploy ou infraestrutura pendente neste
-repositório.** A Fase 13 está tecnicamente encerrada dos dois lados (backend e front) exceto por
-um item que não é código.
+**Sessão só de documentação — nenhum código deste repositório mudou.** A pedido do usuário, esta
+sessão leu o que aconteceu no front (sessões 31–35, que tinham ficado sem eco aqui) e sincronizou
+`vision.md`, `roadmap.md` e `queue.md`, além de reestruturar as dívidas técnicas como a tabela
+T1–T6 ordenada acima. **Não há bug em aberto, nem tarefa de código, deploy ou infraestrutura
+pendente neste repositório.**
 
-- **Estado do repositório:** branch `dev`, working tree limpo, sincronizado com `origin/dev` e
-  `origin/main` (mesmo commit em ambos). `main` foi promovida pela primeira vez nesta sessão
-  (fast-forward, sem conflitos) e o serviço Railway (`squadup-api.up.railway.app`, auto-deploy em
-  `dev`) está rodando o código da Fase 13 com a migration já aplicada — confirmado via
-  `GET /health` e `GET /matches?lat=...&lng=...&radius_km=...`, ambos `200` em produção.
-  Suíte completa (`pytest`/`ruff`/`black`/`mypy --strict`/`bandit`) verde na última verificação
-  desta sessão. Branch `feature/fase-13-geo-push` pode ser deletada (local e remota) quando o
-  usuário quiser — seu conteúdo já está em `dev`/`main`.
-- **Nomes de pasta:** o front é `../squadup-front` nesta máquina (não `../squadup-app`, usado em
-  checkpointers de sessões anteriores) — confirmar o nome real antes de seguir um link relativo.
-- **Único item restante de toda a Fase 13/Fase 14 (ambos os repositórios):** etapa 8 —
-  hardening ponta a ponta em dispositivo físico (GPS real + push real via Expo). Não é uma
-  tarefa de código: exige um device físico e não pode ser feita/simulada nesta sessão. Quando o
-  usuário rodar esse teste manual, o próximo passo é só registrar o resultado aqui.
+- **Estado do repositório:** branch `dev`, working tree limpo antes desta sessão (só as 4
+  alterações de `.status/` desta sessão a commitar), sincronizado com `origin/dev`/`origin/main`
+  no início da sessão. Nenhuma mudança de código, dependência ou infraestrutura — só os 4
+  arquivos de `.status/`. Suíte completa (`pytest`/`ruff`/`black`/`mypy --strict`/`bandit`)
+  reconfirmada verde ao final, sem necessidade real já que nada em `app/` mudou.
+- **O que mudou do lado do front desde a última sincronização (sessão 30):** sessões 31–33 (já
+  refletidas aqui antes), sessão 34 (hardening real em dispositivo físico — achou e corrigiu 7
+  bugs, D28–D34, **todos do lado do front**; os dois mais próximos deste backend, D33/senha e
+  D34/e-mail, **confirmaram que os schemas Pydantic aqui sempre estiveram corretos** — ver
+  "Lições das sessões 34–35 do front" acima) e sessão 35 (limpeza de 5 dívidas técnicas de baixa
+  prioridade do front, sem qualquer efeito neste repositório). Detalhe completo em `progress.md`
+  §"Fase 13 — sincronização com o hardening e a limpeza de dívidas do front".
+- **T1 (único item bloqueante, ambos os repositórios) — inalterado:** hardening ponta a ponta em
+  dispositivo físico. A build EAS mais recente do front (`fa25bd21`, commit `3dcd0dd`) **segue
+  sem confirmação de teste ponta a ponta pelo usuário** — mesmo estado documentado desde o fim da
+  sessão 30. Não é tarefa de código: exige um device físico e não pode ser feita/simulada aqui.
+- **Do lado do front, ainda não mergeada:** a branch `chore/tech-debt-cleanup` (sessão 35, front)
+  está commitada mas aguardando revisão/merge em `dev` do lado de lá — não afeta este repositório
+  de nenhuma forma, é só contexto para não estranhar se o front citar essa branch numa próxima
+  conversa.
 - **Próximo passo sugerido para a próxima sessão:** perguntar ao usuário se já rodou o
-  hardening em dispositivo físico; se sim, registrar o resultado e fechar a Fase 13/14
-  formalmente em `roadmap.md`. Se não, não há nada mais a fazer neste repositório — sugerir
-  ver `roadmap.md` §17 ("Próxima evolução após esta etapa": WebSocket, upload de imagens,
-  observabilidade, CI/CD de deploy) como possível próxima frente, a critério do usuário.
+  hardening em dispositivo físico (T1); se sim, registrar o resultado e fechar a Fase 13/14
+  formalmente em `roadmap.md`. Se não, não há nada mais a fazer neste repositório — sugerir T2–T6
+  (seção "Dívidas técnicas e backlog" acima) como possíveis próximas frentes, a critério do
+  usuário, só depois que T1 fechar.
