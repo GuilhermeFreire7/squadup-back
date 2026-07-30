@@ -1,6 +1,6 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-30 (sessão 31 deste repositório, encerramento da continuação que implementou a Fase 15). Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30, fast-forward `440ef35..30eb5d9`) e está em dia com `dev`. Trabalho desta sessão está em `feature/fase-15-dividas-tecnicas`, ainda não mergeada. Para o histórico de tarefas concluídas (Fases 1–15, CI, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-30 (sessão 32 deste repositório — correção pós-merge da Fase 15). Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `feature/fase-15-dividas-tecnicas` foi mergeada em `dev` via **PR #54** (commit de merge `ed14b3f`), confirmado sincronizado com `origin/dev`. `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30) mas **ainda não recebeu a Fase 15** — está 9 commits atrás de `dev` (ver "Checkpointer"). Para o histórico de tarefas concluídas (Fases 1–15, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
@@ -8,12 +8,13 @@ _Fases 1 a 12 concluídas e mergeadas em `dev` (ver `progress.md`)._
 
 _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28); a etapa 8 (hardening ponta a ponta em dispositivo físico) **começou** na sessão 34 do front — achou e corrigiu 7 bugs, todos do lado do front (D28–D34), confirmando o contrato deste backend como correto — mas **segue sem confirmação de teste ponta a ponta pelo usuário** na build mais recente (`fa25bd21`)._
 
-_**Fase 15 (dívidas técnicas T2–T6): concluída** e commitada na branch
-`feature/fase-15-dividas-tecnicas` (2026-07-30), **ainda não mergeada em `dev`** — a critério do
-usuário. Histórico completo (decisões, implementação, validação) arquivado em `progress.md`
-§"Fase 15" e `roadmap.md` §20 — não repetido aqui. Duas ações residuais viraram tarefas novas
-nesta fila: **T7** (credenciais reais de storage) e **T8** (branch protection do GitHub), ambas
-abaixo. Ver "Checkpointer" para o estado exato de retomada._
+_**Fase 15 (dívidas técnicas T2–T6): concluída e mergeada em `dev`** via **PR #54** (commit
+`ed14b3f`), confirmado sincronizado com `origin/dev` (sessão 32, 2026-07-30 — correção: o
+checkpointer da sessão 31 tinha sido escrito antes do merge acontecer). Histórico completo
+(decisões, implementação, validação) arquivado em `progress.md` §"Fase 15" e `roadmap.md` §20 —
+não repetido aqui. Duas ações residuais seguem como tarefas abertas: **T7** (credenciais reais de
+storage) e **T8** (branch protection do GitHub), ambas abaixo. `main` ainda não recebeu esse
+merge — ver "Checkpointer" para o estado exato._
 
 ## Bloqueios
 
@@ -107,9 +108,9 @@ hardening..."), mas a build mais recente (`fa25bd21`) segue sem confirmação de
 ponta pelo usuário. T1 é o **único item bloqueante de toda a Fase 13/Fase 14**, em ambos os
 repositórios — segue exatamente no mesmo estado (nenhuma ação de código é possível aqui).
 
-Fase 15 (T2–T6) está **concluída** (branch `feature/fase-15-dividas-tecnicas`, ainda não
-mergeada) — ver `progress.md` §"Fase 15" e `roadmap.md` §20. Restam só T7/T8 (ações residuais,
-seção acima), nenhuma bloqueante.
+Fase 15 (T2–T6) está **concluída e mergeada em `dev`** (PR #54) — ver `progress.md` §"Fase 15" e
+`roadmap.md` §20. Restam só T7/T8 (ações residuais, seção acima) e a promoção de `main` (ver
+Checkpointer), nenhuma bloqueante.
 
 ## Plano de entrega final (app + backend + TCC)
 
@@ -126,11 +127,13 @@ lado do front, as etapas 5–7 (geolocalização real e push real) também já f
 na sessão 34 — ver T1 acima e o Checkpointer abaixo para o estado exato.
 
 **Atualização (2026-07-30, sessão 31, continuação — Fase 15):** T2–T6 implementadas, commitadas
-na branch `feature/fase-15-dividas-tecnicas` (ainda não mergeada em `dev`), com build/suíte
-completa validada. Restam T7 (credenciais de storage) e T8 (branch protection) — ambas
-não-bloqueantes, ver seção "Dívidas técnicas e backlog". **T1 continua sendo o único item
-bloqueante de toda a Fase 13/Fase 14** (em ambos os repositórios) — depende do usuário/front, não
-de mais código de backend.
+na branch `feature/fase-15-dividas-tecnicas`, com build/suíte completa validada. **Atualização
+(2026-07-30, sessão 32):** confirmado que a branch foi mergeada em `dev` via **PR #54**
+(`ed14b3f`) e está sincronizada com `origin/dev` — suíte reconfirmada verde nesta sessão
+(161/161 testes, ruff/black/mypy/bandit/alembic check limpos). Restam T7 (credenciais de storage),
+T8 (branch protection) e a promoção de `main` (9 commits atrás de `dev`) — nenhuma bloqueante.
+**T1 continua sendo o único item bloqueante de toda a Fase 13/Fase 14** (em ambos os
+repositórios) — depende do usuário/front, não de mais código de backend.
 
 ## Notas
 
@@ -160,57 +163,47 @@ de mais código de backend.
 - **`mypy` (strict) não aceita `Coluna == True`/`Coluna.is_(True)` em atributos `bool` do SQLModel** — o SQLModel tipa o atributo estaticamente como `bool` do Python, não como `InstrumentedAttribute`, então `.is_()` não existe nesse tipo aos olhos do mypy. Usar `sqlmodel.col(Model.campo).is_(True)` para sinalizar explicitamente que é uma coluna SQLAlchemy. Ao combinar com `|` (or bitwise) em `where()`, colocar a expressão `col(...).is_(...)` primeiro no `|` — `bool_column < valor | col(...).is_(True)` com a comparação primeiro faz o mypy tentar resolver via `bool.__or__` e falha (`No overload variant of "__or__" of "bool"`).
 - **Rotina de purge sem scheduler dedicado:** para o volume esperado do MVP, purge de linhas obsoletas (`refresh_tokens` expirados/revogados) rodando uma vez por inicialização da API, dentro do `lifespan` (mesmo padrão de `create_db_and_tables()`), é suficiente — não é necessário introduzir Celery/cron externo só para isso. Reavaliar só se o padrão de deploy (várias réplicas subindo/descendo com frequência, sem período de baixo tráfego) tornar o purge-no-startup ineficaz.
 
-## Checkpointer — retomar aqui na próxima sessão (sessão 31, encerrada em 2026-07-30)
+## Checkpointer — retomar aqui na próxima sessão (sessão 32, encerrada em 2026-07-30)
 
-> Histórico das sessões 28/29/30 e da primeira parte da sessão 31 (só documentação) arquivado em
-> `progress.md`. Este é o único Checkpointer ativo.
+> Histórico das sessões 28–31 arquivado em `progress.md`. Este é o único Checkpointer ativo.
 
-**Estado exato de parada — nada em andamento, nenhum bug aberto, nenhuma função pela metade.**
-A Fase 15 (T2–T6) foi implementada, validada e **commitada** nesta sessão. Não há trabalho de
-código interrompido — a sessão fechou num ponto limpo. Para retomar:
+**Correção de estado, não trabalho novo.** Entre o fechamento da sessão 31 (checkpointer dizia
+"commit local, ainda sem push/PR") e o início desta sessão, `feature/fase-15-dividas-tecnicas`
+**foi enviada e mergeada** em `dev` via PR #54 (fora desta conversa) — a pedido do usuário ("as
+dívidas do backend foram sanadas, veja lá"), esta sessão só verificou o estado real do
+repositório e corrigiu os documentos que ainda diziam "não mergeada".
 
-- **Commit exato:** `c860977` — "feat: implementa dividas tecnicas T2-T6 (push por dispositivo,
-  chat WebSocket, upload de avatar, observabilidade, gate de qualidade)", na branch
-  `feature/fase-15-dividas-tecnicas` (criada a partir de `dev`, que estava em `f75435a`).
-  `git status` limpo (working tree sem alterações pendentes) na branch imediatamente após o
-  commit. **Ainda não houve push nem PR** — só commit local, a critério do usuário decidir o
-  próximo passo (push/PR/merge) na próxima sessão.
-- **Build verificado nesta sessão, após o commit:** suíte completa
-  (`SECRET_KEY=ci-test-secret-key python -m pytest`) → 161 passed, 98.87% cobertura (gate 80%);
-  `ruff check .`, `black --check .`, `mypy app` (strict) e
-  `bandit -c pyproject.toml -r app --exclude app/tests -ll` → todos verdes; `alembic upgrade
-  head` + `alembic check` → aplica limpo, sem operação pendente de autogenerate. Também subiu a
-  aplicação de verdade via `uvicorn app.main:app` e confirmou `GET /health` (200) e `GET
-  /metrics` (200, formato Prometheus) respondendo, com log estruturado JSON incluindo
-  `request_id` aparecendo no stdout — tudo funcionando, não só testes unitários.
-- **O que foi implementado (resumo — detalhe completo em `progress.md` §"Fase 15" e
-  `roadmap.md` §20):** T2 (`PushToken.device_id`, logout single-device revoga só aquele token),
-  T3 (`WS /matches/{id}/ws?token=<jwt>`, broadcast cruzado REST↔WS via
-  `app/core/ws_manager.py`), T4 (`POST /users/me/avatar`, storage S3-compatible genérico via
-  `app/services/storage_service.py`), T5 (logs JSON + `request_id` via
-  `app/core/middleware.py`/`app/core/logging.py`, métricas em `GET /metrics` via
-  `app/core/metrics.py`, `loadtest/locustfile.py`), T6 (`quality-gate` em
-  `.github/workflows/ci.yml`).
-- **Duas pendências residuais viraram tarefas novas (T7/T8, seção "Dívidas técnicas e
-  backlog" acima) — nenhuma bloqueante, nenhuma de código:**
-  1. **T7:** nenhuma credencial real de storage foi configurada (`S3_BUCKET`/
-     `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` vazias) — `POST /users/me/avatar` responde
-     `503 STORAGE_NOT_CONFIGURED` até isso ser configurado (comportamento esperado, não bug).
-  2. **T8:** a branch protection do GitHub para exigir o check `quality-gate` **não foi
-     configurada** — não havia `gh`/acesso à API do GitHub disponível neste ambiente. O job
-     roda e reporta, mas ainda não bloqueia merge de código quebrado.
+- **Estado confirmado do repositório:** branch `dev`, working tree limpo, `HEAD` em `ed14b3f`
+  (merge commit do PR #54) — **idêntico a `origin/dev`**. `main` (local e remota) segue em
+  `30eb5d9`, **9 commits atrás de `dev`** (inclui a Fase 15 inteira + os docs de sincronização das
+  sessões 30–31) — **ainda não promovida**. Nenhuma decisão foi tomada aqui sobre promover `main`
+  agora; é uma ação simples (fast-forward, mesmo padrão da sessão 30) quando o usuário quiser.
+- **Suíte reconfirmada verde nesta sessão** (mesmo código de `c860977`, sem mudança):
+  `SECRET_KEY=ci-test-secret-key pytest` → 161/161 passed, 98.87% cobertura; `ruff check .`,
+  `black --check .`, `mypy app` (strict), `bandit -c pyproject.toml -r app --exclude app/tests
+  -ll`, `alembic check` → todos limpos.
+- **T2–T6 (Fase 15) confirmadas em `dev`:** `PushToken.device_id` (logout single-device revoga só
+  aquele token), `WS /matches/{id}/ws?token=<jwt>` (chat em tempo real, broadcast cruzado REST↔WS
+  via `app/core/ws_manager.py`), `POST /users/me/avatar` (storage S3-compatible genérico via
+  `app/services/storage_service.py`), logs JSON + `request_id` + `GET /metrics` (Prometheus) +
+  `loadtest/locustfile.py`, `quality-gate` em `.github/workflows/ci.yml`. Detalhe completo em
+  `progress.md` §"Fase 15" e `roadmap.md` §20 (inalterado desde a sessão 31).
+- **T7/T8 seguem abertas, sem mudança:**
+  1. **T7:** nenhuma credencial real de storage configurada (`S3_BUCKET`/`S3_ACCESS_KEY_ID`/
+     `S3_SECRET_ACCESS_KEY` vazias) — `POST /users/me/avatar` responde
+     `503 STORAGE_NOT_CONFIGURED` até isso ser configurado (esperado, não bug).
+  2. **T8:** branch protection do GitHub para exigir o check `quality-gate` **não configurada** —
+     sem `gh`/acesso à API do GitHub neste ambiente também nesta sessão (confirmado: `gh` não
+     está instalado). O job roda e reporta, mas não bloqueia merge de código quebrado ainda.
 - **T1 (único item bloqueante de toda a Fase 13/Fase 14, ambos os repositórios) — inalterado:**
   hardening ponta a ponta em dispositivo físico. A build EAS mais recente do front (`fa25bd21`,
   commit `3dcd0dd`) **segue sem confirmação de teste ponta a ponta pelo usuário**. Não é tarefa
   de código: exige um device físico e não pode ser feita/simulada aqui.
-- **Do lado do front, ainda não mergeada:** a branch `chore/tech-debt-cleanup` (sessão 35, front)
-  segue commitada mas aguardando revisão/merge em `dev` do lado de lá — não afeta este
-  repositório, é só contexto para não estranhar se o front citar essa branch numa próxima
-  conversa.
 - **Próximo passo sugerido para a próxima sessão (nenhum é urgente, todos a critério do
-  usuário):** (1) decidir se/quando dar `git push` e abrir PR de
-  `feature/fase-15-dividas-tecnicas` para `dev` (perguntado nesta sessão, usuário optou por
-  fechar a sessão antes de decidir); (2) configurar T7 (credenciais de storage) quando escolher
-  provedor; (3) configurar T8 (branch protection) manualmente no GitHub; (4) perguntar se o
-  usuário já rodou o hardening em dispositivo físico (T1) — se sim, registrar o resultado e
-  fechar a Fase 13/14 formalmente em `roadmap.md`.
+  usuário):** (1) promover `main` (fast-forward, `dev` → `main`, mesmo padrão da sessão 30), se o
+  usuário quiser produção alinhada com a Fase 15 — **nota:** T7 (storage) não está configurado em
+  produção, então `POST /users/me/avatar` responderá `503` em produção mesmo depois de promovido,
+  até T7 ser resolvido; (2) configurar T7 (credenciais de storage) quando escolher provedor;
+  (3) configurar T8 (branch protection) manualmente no GitHub; (4) perguntar se o usuário já
+  rodou o hardening em dispositivo físico (T1) — se sim, registrar o resultado e fechar a Fase
+  13/14 formalmente em `roadmap.md`.
