@@ -17,6 +17,7 @@
 | Fase 11 | Hardening e integração final com o front | 🟢 Concluída |
 | Fase 12 | Refinamentos de contrato para integração com o front | 🟢 Concluída |
 | Fase 13 | Geolocalização real e notificações push | 🟡 Quase concluída — tarefas 1–4 (backend) concluídas e mergeadas em `dev` via PR #50 (2026-07-28), migration confirmada em produção (Railway) e `main` promovida pela primeira vez na mesma data; front concluiu geolocalização e push (etapas 5–7, sessões 31–33) **e** o hardening em dispositivo físico (sessão 34) achou e corrigiu 7 bugs, todos do lado do front, confirmando que o contrato deste backend está correto — falta só a confirmação de teste ponta a ponta pelo usuário na build mais recente (`fa25bd21`), único item restante em ambos os repositórios (sincronizado sessão 31, 2026-07-30) |
+| Fase 15 | Dívidas técnicas e evolução de escopo (T2–T6) | 🟢 Concluída — implementada na branch `feature/fase-15-dividas-tecnicas` (2026-07-30), ainda não mergeada em `dev`. Ver §20 |
 
 **Progresso geral:** 10/11 fases concluídas e mergeadas em `dev`, todas também promovidas para `main` desde 2026-07-28 · Fase 1 concluída e mergeada em `dev` via `feature/fase-1-estrutura-inicial` (servidor FastAPI rodando, `/health` respondendo, SQLite conectado via SQLModel, Alembic configurado, `pytest`/`ruff`/`black` verdes). CI/CD (`feature/ci-pipelines`) também mergeado em `dev`. Fase 2 concluída e mergeada em `dev` (PR #18): models, migration inicial e seed espelhando o front. Fase 3 (Autenticação) concluída e mergeada em `dev` (PR #19, commit `a2366e0`): register/login/me com JWT. Fase 4 (Perfil de usuário) concluída e mergeada em `dev` (PR #20, commit `16b5915`): `GET/PATCH /users/me`, `GET /users/{id}` com métricas derivadas. Fase 5 (Partidas) concluída e mergeada em `dev` (PR #21, commit `72de758`): `GET /matches` com filtros, `GET /matches/{id}` com participantes e organizador expandidos. Fase 6 (Criação de partida) concluída e mergeada em `dev` (PR #22, commit `fff5490`): `POST /matches` com o usuário autenticado como organizador. Fase 7 (Participação em partida) concluída e mergeada em `dev` (PR #23, commit `95c13e2`): `POST /matches/{id}/join`, `POST /matches/{id}/leave`, `POST /matches/{id}/participants/{userId}/approve`, com `status` da partida recalculado automaticamente a partir da contagem de participantes confirmados. Fase 8 (Mensagens) concluída e mergeada em `dev` (PR #24, commit `25ff076`): `GET/POST /matches/{id}/messages`, restritos ao organizador ou a participantes confirmados. Fase 9 (Avaliação pós-partida) concluída e mergeada em `dev` (PR #25, commit `ffccd58`): `POST /matches/{id}/ratings/{userId}`, `GET /users/{id}/ratings`, com validação de `match.status == closed` e ambos os usuários `confirmed`. Fase 10 (Denúncia e moderação) concluída e mergeada em `dev` (PR #26, commit `b11b834`): `POST /reports`, `GET /reports`, `PATCH /reports/{id}` (`archive`/`warn`/`ban`), com RBAC mínimo via `get_current_admin`. Após o merge, `pip-audit` no CI motivou a troca de `python-jose` por `PyJWT` (commit `ffe7fa3`) para eliminar a dependência transitiva `ecdsa==0.19.2` (`PYSEC-2026-1325`, sem fix disponível), sem mudança de comportamento (`HS256` continua sendo o único algoritmo usado). Fase 11 (Hardening e integração final) iniciada na branch `feature/fase-11-hardening`: refresh token com rotação (`POST /auth/refresh`, `POST /auth/logout`, tabela `refresh_tokens`) e `POST /matches/{id}/close` (fechamento manual de partida pelo organizador) implementados e validados localmente (96 testes, 97.89% cobertura); cobertura de testes (99.07%) e documentação OpenAPI concluídas e mergeadas via PR #28 (commit `90e9427`); CORS/produção, hospedagem e integração com o front ainda não iniciados. Fase 12 (Refinamentos de contrato) **concluída**: D-B, D-C e D-D (ver `progress.md` §"Fase 12") — `RatingRead.rated_user` expandido como `PublicProfileRead`; `RatingRead.match`/`ReportRead.match` expandidos como `MatchRef` (`id, title, sport, date`) em vez de `match_id` solto; `create_match` passou a emitir automaticamente uma `Message(type=system)` ao criar a partida. `feature/fase-12-contrato` mergeada em `dev` via PR #31. Itens de infraestrutura também concluídos: `cors_origins` configurável, purge de `refresh_tokens` no startup, `/openapi.json` validado contra o front, hospedagem decidida (**Railway**, com `Procfile`/driver `psycopg`/documentação de deploy prontos) e `POST /auth/logout-all` para logout de todos os dispositivos (branch `feature/fase-12-infra-final`). Tudo validado com `pytest` (113 testes, 99.11% cobertura), `ruff`/`black`/`mypy`/`bandit`/`alembic check` verdes e checagem manual via `/openapi.json` e `uvicorn` local. Ver `vision.md` para o contexto completo e `progress.md` para o histórico detalhado.
 
@@ -461,3 +462,47 @@ Partidas podem ser filtradas/ordenadas por proximidade real, e usuários recebem
 push nos eventos mínimos definidos — sem repetir, do lado do backend, os erros de escopo que a
 Fase 12 corrigiu (nada disso deve ser escrito antes do contrato de API estar validado
 ponta-a-ponta pela integração real do front).
+
+---
+
+## 20. Fase 15 — Dívidas técnicas e evolução de escopo (T2–T6)
+
+> Registrada e implementada em 2026-07-30 (sessão 31), a pedido do usuário — "implementar todas
+> as dívidas pendentes" (T2–T6 de `queue.md`, que antes desta sessão estavam marcadas como sem
+> data prevista/a decidir). Branch `feature/fase-15-dividas-tecnicas`, ainda não mergeada em
+> `dev`. Detalhe tarefa-a-tarefa em `progress.md` §"Fase 15".
+
+### Decisões de escopo (fechadas com o usuário antes de implementar)
+
+- **T4 (storage de avatar):** genérico via variáveis de ambiente (`boto3`), não acoplado a um
+  provedor específico — funciona com AWS S3, Cloudflare R2, Backblaze B2 etc. sem mudar código.
+  Nenhuma credencial real foi configurada nesta sessão (decisão do usuário).
+- **T2 (push token no logout single-device):** `device_id` opcional adicionado ao contrato de
+  `POST /users/me/push-token` (mudança aditiva).
+- **T3 (WebSocket do chat):** autenticação via `token` na query string da conexão.
+- **T6 (CI/CD):** interpretado como gate de qualidade (CI como required check via branch
+  protection), não um pipeline de deploy próprio — evita depender de um novo secret
+  (`RAILWAY_TOKEN`); o Railway continua fazendo o deploy físico via auto-deploy nativo.
+
+### O que foi implementado
+
+- **T2:** `PushToken.device_id` (migration `052fdc2388be`); `POST /auth/logout` aceita
+  `device_id` opcional e revoga só o push token daquele dispositivo, sem afetar outras sessões.
+- **T3:** `WS /matches/{id}/ws?token=<jwt>`, com broadcast cruzado entre REST e WebSocket
+  (`app/core/ws_manager.py`). Chat REST (`GET/POST /matches/{id}/messages`) continua funcionando
+  sem mudança — WebSocket é aditivo.
+- **T4:** `POST /users/me/avatar` (multipart, JPEG/PNG/WebP até 5MB) via
+  `app/services/storage_service.py`. `503 STORAGE_NOT_CONFIGURED` sem credenciais configuradas.
+- **T5:** logs estruturados em JSON + `request_id` por requisição (`structlog` +
+  `RequestContextMiddleware`), métricas Prometheus em `GET /metrics`, script de carga
+  (`loadtest/locustfile.py`, Locust).
+- **T6:** job `quality-gate` consolidado em `.github/workflows/ci.yml` — pensado para ser o
+  único status check exigido em branch protection. **Configuração da branch protection em si
+  ainda não feita** (exige acesso à API/UI do GitHub, indisponível neste ambiente) — ver
+  README.md, seção "Gate de qualidade antes do deploy", para o passo manual pendente.
+
+### Resultado alcançado
+
+161 testes (35 novos), 98.87% de cobertura, `ruff`/`black`/`mypy --strict`/`bandit -ll`/
+`alembic check` todos verdes. `README.md`/`.env.example` atualizados. Branch pronta para
+revisão — merge em `dev` a critério do usuário.

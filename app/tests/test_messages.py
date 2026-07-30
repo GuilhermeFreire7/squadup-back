@@ -2,6 +2,7 @@ from collections.abc import Generator
 from datetime import date, time
 
 import pytest
+from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
@@ -331,3 +332,79 @@ def test_send_message_sends_push_to_confirmed_participants_excluding_sender(
 
     assert response.status_code == 201
     assert sent_tokens == ["player-token"]
+
+
+def test_ws_receives_broadcast_of_message_sent_via_rest(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/users/me", headers=headers).json()
+    organizer = session.get(User, me["id"])
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer)
+
+    with client.websocket_connect(f"/matches/{match.id}/ws?token={token}") as websocket:
+        client.post(f"/matches/{match.id}/messages", json={"text": "Bora jogar!"}, headers=headers)
+        data = websocket.receive_json()
+
+    assert data["text"] == "Bora jogar!"
+    assert data["match_id"] == match.id
+    assert data["sender"]["id"] == organizer.id
+
+
+def test_ws_send_message_creates_and_broadcasts(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/users/me", headers=headers).json()
+    organizer = session.get(User, me["id"])
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer)
+
+    with client.websocket_connect(f"/matches/{match.id}/ws?token={token}") as websocket:
+        websocket.send_json({"text": "Enviado via WS"})
+        data = websocket.receive_json()
+
+    assert data["text"] == "Enviado via WS"
+    assert data["sender"]["id"] == organizer.id
+
+    history = client.get(f"/matches/{match.id}/messages", headers=headers).json()
+    assert any(message["text"] == "Enviado via WS" for message in history)
+
+
+def test_ws_rejects_invalid_token(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(f"/matches/{match.id}/ws?token=invalid-token"):
+            pass
+
+    assert exc_info.value.code == 4401
+
+
+def test_ws_rejects_non_participant(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer)
+    outsider_token = _register_and_login(client, email="outsider@example.com")
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(f"/matches/{match.id}/ws?token={outsider_token}"):
+            pass
+
+    assert exc_info.value.code == 4403
+
+
+def test_ws_rejects_unknown_match(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(f"/matches/does-not-exist/ws?token={token}"):
+            pass
+
+    assert exc_info.value.code == 4404

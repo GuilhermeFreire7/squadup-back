@@ -202,6 +202,55 @@ def test_logout_all_rejects_missing_token(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_logout_with_device_id_revokes_only_that_devices_push_token(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    tokens = _login(client)
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    client.post(
+        "/users/me/push-token",
+        json={"token": "device-a-token", "device_id": "device-a"},
+        headers=headers,
+    )
+    second_login = client.post(
+        "/auth/login",
+        json={"email": VALID_PAYLOAD["email"], "password": VALID_PAYLOAD["password"]},
+    ).json()
+    client.post(
+        "/users/me/push-token",
+        json={"token": "device-b-token", "device_id": "device-b"},
+        headers={"Authorization": f"Bearer {second_login['access_token']}"},
+    )
+
+    response = client.post(
+        "/auth/logout",
+        json={"refresh_token": tokens["refresh_token"], "device_id": "device-a"},
+    )
+
+    assert response.status_code == 204
+    remaining = session.exec(select(PushToken)).all()
+    assert [t.token for t in remaining] == ["device-b-token"]
+
+
+def test_logout_without_device_id_does_not_touch_push_tokens(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    tokens = _login(client)
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    client.post(
+        "/users/me/push-token",
+        json={"token": "device-a-token", "device_id": "device-a"},
+        headers=headers,
+    )
+
+    response = client.post("/auth/logout", json={"refresh_token": tokens["refresh_token"]})
+
+    assert response.status_code == 204
+    assert len(session.exec(select(PushToken)).all()) == 1
+
+
 def test_logout_all_revokes_registered_push_tokens(
     db_client: tuple[TestClient, Session],
 ) -> None:

@@ -7,6 +7,7 @@ from app.services.push_token_service import (
     get_push_tokens_for_users,
     register_push_token,
     revoke_all_push_tokens,
+    revoke_push_token_by_device,
 )
 
 
@@ -85,3 +86,37 @@ def test_get_push_tokens_for_users_returns_tokens_for_given_users_only(session: 
 
 def test_get_push_tokens_for_users_returns_empty_for_empty_input(session: Session) -> None:
     assert get_push_tokens_for_users(session, []) == []
+
+
+def test_register_push_token_stores_device_id(session: Session) -> None:
+    user = _make_user(session, "u1")
+
+    register_push_token(session, user.id, "token-1", device_id="device-a")
+
+    rows = session.exec(select(PushToken)).all()
+    assert rows[0].device_id == "device-a"
+
+
+def test_revoke_push_token_by_device_removes_only_matching_device(session: Session) -> None:
+    user = _make_user(session, "u1")
+    register_push_token(session, user.id, "token-a", device_id="device-a")
+    register_push_token(session, user.id, "token-b", device_id="device-b")
+
+    removed = revoke_push_token_by_device(session, user.id, "device-a")
+
+    assert removed == 1
+    remaining = session.exec(select(PushToken)).all()
+    assert [t.token for t in remaining] == ["token-b"]
+
+
+def test_revoke_push_token_by_device_does_not_affect_other_users(session: Session) -> None:
+    user = _make_user(session, "u1")
+    other = _make_user(session, "u2")
+    register_push_token(session, user.id, "token-a", device_id="shared-device-id")
+    register_push_token(session, other.id, "token-b", device_id="shared-device-id")
+
+    removed = revoke_push_token_by_device(session, user.id, "shared-device-id")
+
+    assert removed == 1
+    remaining = session.exec(select(PushToken)).all()
+    assert [t.token for t in remaining] == ["token-b"]

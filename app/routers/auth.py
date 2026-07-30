@@ -4,7 +4,13 @@ from sqlmodel import Session
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.schemas.errors import AUTH_ERRORS, error_responses
 from app.schemas.user import UserRead
 from app.services.auth_service import (
@@ -14,6 +20,7 @@ from app.services.auth_service import (
     revoke_all_refresh_tokens,
     revoke_refresh_token,
 )
+from app.services.push_token_service import revoke_push_token_by_device
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -74,13 +81,17 @@ def refresh(payload: RefreshRequest, session: Session = Depends(get_session)) ->
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Encerrar sessão",
-    description="Revoga o refresh token informado, impedindo seu uso futuro.",
+    description="Revoga o refresh token informado, impedindo seu uso futuro. Se `device_id` "
+    "for informado (mesmo valor enviado em `POST /users/me/push-token`), revoga também só o "
+    "push token deste dispositivo, sem afetar outras sessões ativas do mesmo usuário.",
     responses=error_responses(
         (401, "INVALID_REFRESH_TOKEN", "Refresh token inválido, expirado ou já utilizado."),
     ),
 )
-def logout(payload: RefreshRequest, session: Session = Depends(get_session)) -> None:
-    revoke_refresh_token(session, payload.refresh_token)
+def logout(payload: LogoutRequest, session: Session = Depends(get_session)) -> None:
+    stored = revoke_refresh_token(session, payload.refresh_token)
+    if payload.device_id:
+        revoke_push_token_by_device(session, stored.user_id, payload.device_id)
 
 
 @router.post(

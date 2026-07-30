@@ -105,11 +105,13 @@ def refresh_tokens(session: Session, refresh_token: str) -> TokenResponse:
     return _issue_token_pair(session, user)
 
 
-def revoke_refresh_token(session: Session, refresh_token: str) -> None:
+def revoke_refresh_token(session: Session, refresh_token: str) -> RefreshToken:
     stored = _get_valid_refresh_token(session, refresh_token)
     stored.revoked = True
     session.add(stored)
     session.commit()
+    session.refresh(stored)
+    return stored
 
 
 def revoke_all_refresh_tokens(session: Session, user_id: str) -> int:

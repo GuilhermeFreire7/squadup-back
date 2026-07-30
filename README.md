@@ -17,7 +17,10 @@ Contexto completo do produto e do roadmap técnico em [`.status/`](.status/):
 - **Banco de dados:** SQLite em desenvolvimento, PostgreSQL previsto para produção
 - **Migrations:** [Alembic](https://alembic.sqlalchemy.org/)
 - **Autenticação:** JWT (`PyJWT`) + hashing de senha com `passlib[bcrypt]`
-- **Testes:** `pytest` + `pytest-cov` + `httpx`/`TestClient`
+- **Chat em tempo real:** WebSocket nativo do FastAPI/Starlette (sem broker externo)
+- **Storage:** `boto3` (cliente S3-compatible genérico — AWS S3, Cloudflare R2, Backblaze B2 etc.)
+- **Observabilidade:** `structlog` (logs em JSON), `prometheus-client` (métricas em `/metrics`)
+- **Testes:** `pytest` + `pytest-cov` + `httpx`/`TestClient`; `locust` para teste de carga
 - **Qualidade:** `ruff` (lint), `black` (format), `mypy` (type-check estrito)
 - **Segurança:** `bandit` (SAST), `pip-audit` (CVEs em dependências), CodeQL e gitleaks no CI
 
@@ -55,7 +58,7 @@ JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 - `POST /auth/login` — valida e-mail/senha e retorna `{ access_token, refresh_token, token_type }`; `401 INVALID_CREDENTIALS` em caso de falha.
 - `GET /auth/me` — retorna o usuário autenticado a partir do header `Authorization: Bearer <token>`.
 - `POST /auth/refresh` — troca um `refresh_token` válido por um novo par `{ access_token, refresh_token }` (rotação: o refresh token usado é revogado); `401 INVALID_REFRESH_TOKEN` se estiver inválido, expirado, revogado ou já utilizado.
-- `POST /auth/logout` — revoga um `refresh_token`, encerrando a sessão correspondente; `204` em caso de sucesso, `401 INVALID_REFRESH_TOKEN` se o token já não for válido.
+- `POST /auth/logout` — revoga um `refresh_token`, encerrando a sessão correspondente; `204` em caso de sucesso, `401 INVALID_REFRESH_TOKEN` se o token já não for válido. Se `device_id` for informado (mesmo valor enviado em `POST /users/me/push-token`), revoga também só o push token daquele dispositivo, sem afetar outras sessões ativas do mesmo usuário.
 - `POST /auth/logout-all` — revoga **todos** os refresh tokens ativos do usuário autenticado (`Authorization: Bearer <token>`), encerrando todas as sessões de uma vez (ex.: suspeita de dispositivo comprometido); `204` em caso de sucesso.
 
 A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
@@ -71,8 +74,14 @@ evita que a tabela cresça indefinidamente sem exigir infraestrutura de schedule
 - `GET /users/me` — perfil completo do usuário autenticado (`Authorization: Bearer <token>`), incluindo `average_rating` e `matches_played`.
 - `PATCH /users/me` — atualiza campos do próprio perfil (`name`, `photo_url`, `age`, `location`, `bio`, `favorite_sports`, `level`); aceita atualização parcial.
 - `GET /users/{id}` — perfil público de qualquer usuário (sem `email`/`role`), com as mesmas métricas derivadas.
+- `POST /users/me/avatar` — envia uma imagem (`multipart/form-data`, campo `file`; JPEG/PNG/WebP, até 5MB) como avatar do usuário autenticado, atualizando `photo_url`. `400 INVALID_IMAGE_TYPE` se o tipo não for suportado, `400 IMAGE_TOO_LARGE` se exceder 5MB, `503 STORAGE_NOT_CONFIGURED` se o storage S3-compatible não estiver configurado no ambiente (ver `.env.example`).
 
 `average_rating` (média de `Rating.overall`) e `matches_played` (contagem de `Participant.status == confirmed`) são sempre calculados na consulta em `app/services/user_service.py` — nunca armazenados como coluna solta, para não divergirem dos dados reais.
+
+O upload de avatar (`app/services/storage_service.py`) é genérico por design: fala com qualquer
+provedor S3-compatible (AWS S3, Cloudflare R2, Backblaze B2 etc.) via `endpoint_url`
+configurável — só as variáveis de ambiente mudam entre provedores, sem alterar código (ver
+`.env.example`, seção storage).
 
 ## Partidas
 
@@ -98,9 +107,15 @@ O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join
 - `GET /matches/{id}/messages` — histórico de mensagens em ordem cronológica, paginado via `skip`/`limit` (padrão `limit=50`, máximo `100`).
 - `POST /matches/{id}/messages` — envia uma nova mensagem (`text`, não vazio); `created_at` é gerado pelo servidor.
 
-Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao organizador da partida ou a participantes com `Participant.status == confirmed` — `403 NOT_MATCH_PARTICIPANT` caso contrário, `404 MATCH_NOT_FOUND` se a partida não existir. Não há WebSocket nesta fase; o front deve fazer polling/refetch.
+Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao organizador da partida ou a participantes com `Participant.status == confirmed` — `403 NOT_MATCH_PARTICIPANT` caso contrário, `404 MATCH_NOT_FOUND` se a partida não existir.
 
 Ao criar uma partida (`POST /matches`), o servidor emite automaticamente uma primeira `Message` com `type: "system"` (`sender` = organizador, texto fixo "Partida criada. Bem-vindos!") — o chat da partida nunca começa vazio.
+
+### Chat em tempo real (WebSocket)
+
+- `WS /matches/{id}/ws?token=<jwt>` — conexão WebSocket para o chat da partida, complementar ao REST acima (que continua funcionando sem mudança, útil para histórico/poll). Autenticação via `token` na query string (não em header — o front/Expo não tem controle fino de headers em WebSocket nativo). Mesmo critério de acesso do REST (organizador ou participante `confirmed`); a conexão é recusada com o código de fechamento `4401` (token inválido), `4403` (sem acesso ao chat) ou `4404` (partida inexistente).
+- Mensagens enviadas via REST (`POST /matches/{id}/messages`) são propagadas (broadcast) para todos os clientes conectados no WebSocket da mesma partida, e vice-versa: uma mensagem enviada pelo WebSocket (`{"text": "..."}`) é persistida e propagada da mesma forma, incluindo o disparo de push nos mesmos eventos do REST.
+- Estado das conexões ativas fica em memória de um único processo (`app/core/ws_manager.py`) — suficiente para o volume esperado do MVP; múltiplas réplicas simultâneas exigiriam um broker externo (ex.: Redis pub/sub), fora do escopo desta fase.
 
 ## Avaliação pós-partida
 
@@ -121,11 +136,26 @@ RBAC mínimo via campo `role` (`user`/`admin`) em `User`, checado pela dependenc
 
 ## Notificações push
 
-- `POST /users/me/push-token` — registra (ou realoca, se o token já pertencer a outro usuário — mesmo dispositivo, conta diferente) o Expo Push Token do dispositivo do usuário autenticado. Idempotente por `token` (unique); `204 No Content`.
+- `POST /users/me/push-token` — registra (ou realoca, se o token já pertencer a outro usuário — mesmo dispositivo, conta diferente) o Expo Push Token do dispositivo do usuário autenticado. Aceita um `device_id` opcional (identificador estável do dispositivo/instalação), que permite revogar só aquele token num logout de um único dispositivo (ver abaixo). Idempotente por `token` (unique); `204 No Content`.
 
-Push é enviado via Expo Push API (`https://exp.host/--/api/v2/push/send`, chamada direta por `httpx` — sem SDK dedicado) em `app/services/notification_service.py::send_push`, disparado em `BackgroundTasks` (depois que a transação principal já commitou) para 3 eventos: nova mensagem no chat (destinatários: organizador + participantes `confirmed`, exceto quem enviou), participação aprovada (o usuário aprovado) e partida encerrada (participantes `confirmed`, exceto o organizador que encerrou). Falha de entrega (rede fora do ar, token inválido/expirado) nunca propaga erro para o endpoint que originou o evento — só é logada.
+Push é enviado via Expo Push API (`https://exp.host/--/api/v2/push/send`, chamada direta por `httpx` — sem SDK dedicado) em `app/services/notification_service.py::send_push`, disparado em `BackgroundTasks` (depois que a transação principal já commitou) para 3 eventos: nova mensagem no chat (destinatários: organizador + participantes `confirmed`, exceto quem enviou — inclusive as enviadas via WebSocket), participação aprovada (o usuário aprovado) e partida encerrada (participantes `confirmed`, exceto o organizador que encerrou). Falha de entrega (rede fora do ar, token inválido/expirado) nunca propaga erro para o endpoint que originou o evento — só é logada.
 
-`POST /auth/logout-all` também remove todos os push tokens do usuário (encerra sessão em todos os dispositivos, nenhum deveria continuar recebendo notificação); `POST /auth/logout` (um único dispositivo) não remove nenhum, porque o contrato de registro não associa um push token a uma sessão/refresh token específico — não há como saber qual token pertence ao dispositivo que está sendo desconectado sem arriscar remover o de outro dispositivo ainda ativo do mesmo usuário.
+`POST /auth/logout-all` remove todos os push tokens do usuário (encerra sessão em todos os dispositivos, nenhum deveria continuar recebendo notificação). `POST /auth/logout` (um único dispositivo), se o cliente informar `device_id` (mesmo valor enviado em `POST /users/me/push-token`), revoga só o push token daquele dispositivo, sem afetar outras sessões ativas do mesmo usuário; sem `device_id`, o comportamento permanece o mesmo de antes (nenhum push token é tocado).
+
+## Observabilidade
+
+- **Logs estruturados em JSON** (`structlog`, configurado em `app/core/logging.py`) — cada linha inclui `request_id`, injetado automaticamente via `structlog.contextvars` por `app.core.middleware.RequestContextMiddleware`.
+- **Request ID por requisição** — gerado (ou propagado, se o cliente já enviar `X-Request-ID`) pelo middleware acima e devolvido no header `X-Request-ID` da resposta, permitindo correlacionar logs de uma mesma requisição ponta a ponta.
+- **Métricas Prometheus** — `GET /metrics` expõe `http_requests_total` (contador por método/rota/status) e `http_request_duration_seconds` (histograma de latência por método/rota), via `prometheus-client`. Protegido por `X-Metrics-Token` se a variável `METRICS_TOKEN` estiver configurada; aberto em dev/CI sem ela.
+
+### Teste de carga
+
+Script básico de carga em [`loadtest/locustfile.py`](loadtest/locustfile.py) (cadastro/login, listagem de partidas, perfil):
+
+```bash
+locust -f loadtest/locustfile.py --host http://127.0.0.1:8000        # UI web em :8089
+locust -f loadtest/locustfile.py --host <url> --headless -u 50 -r 5 -t 2m   # sem UI
+```
 
 ## Testes e qualidade
 
@@ -144,6 +174,16 @@ pip-audit -r requirements.txt                              # vulnerabilidades em
 ```
 
 Todas essas checagens (qualidade + segurança) também rodam automaticamente em CI a cada push/PR — ver [`.github/workflows/`](.github/workflows/).
+
+### Gate de qualidade antes do deploy
+
+O job `quality-gate` (`.github/workflows/ci.yml`) consolida os resultados de `quality` (lint +
+type-check + testes) e `alembic-check` (migrations) num único status check — pensado para ser
+o **único** check exigido na branch protection de `main`/`dev` no GitHub (Settings → Branches →
+Require status checks to pass → "Quality Gate (required for merge)"), em vez de precisar listar
+múltiplos checks individualmente. **Ação manual pendente:** configurar essa branch protection no
+GitHub (não foi possível automatizar aqui por falta de acesso à API do GitHub neste ambiente) —
+sem isso, o gate roda e reporta, mas ainda não bloqueia merge de código quebrado.
 
 ## Deploy
 
@@ -179,7 +219,7 @@ não uma ação pendente):
 
 ## Modelo de dados
 
-Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. `RefreshToken` foi adicionado na Fase 11 (fora do `vision.md` original, que não previa rotação de sessão) para suportar `POST /auth/refresh`/`POST /auth/logout`. `PushToken` foi adicionado na Fase 13 (geolocalização real + push) para suportar `POST /users/me/push-token` — múltiplos tokens ativos por usuário (múltiplos dispositivos), sem vínculo com `RefreshToken`. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
+Tabelas definidas em `app/models/` (SQLModel), seguindo o modelo descrito em `vision.md` §6: `User`, `Match`, `Participant` (associativa Match↔User), `Message`, `Rating`, `Report`. `RefreshToken` foi adicionado na Fase 11 (fora do `vision.md` original, que não previa rotação de sessão) para suportar `POST /auth/refresh`/`POST /auth/logout`. `PushToken` foi adicionado na Fase 13 (geolocalização real + push) para suportar `POST /users/me/push-token` — múltiplos tokens ativos por usuário (múltiplos dispositivos), sem vínculo com `RefreshToken`; ganhou o campo opcional `device_id` na Fase 15 (T2), usado para revogar só o token de um dispositivo específico num logout single-device. Enums compartilhados (esporte, nível, status, etc.) ficam em `app/models/enums.py`.
 
 Regras de negócio que devem ser aplicadas na camada de serviço (não como colunas soltas): vagas/`status` de partida sempre derivados da contagem de `Participant.status == confirmed`; avaliação só válida com `match.status == closed` e ambos usuários `confirmed`.
 
@@ -194,7 +234,13 @@ A URL do banco é lida de `DATABASE_URL` (`.env`), a mesma fonte de verdade usad
 
 ## Roadmap
 
-Fases 1 a 12 concluídas (auth, partidas, participação, mensagens, avaliações, denúncias, hardening e refinamentos de contrato — ver [`.status/roadmap.md`](.status/roadmap.md) para o detalhe completo). **Fase 13 — geolocalização real e notificações push** (`.status/roadmap.md` §19): as 4 tarefas deste repositório (migration de coordenadas, filtro/ordenação por distância em `GET /matches`, tabela `push_tokens` + endpoint de registro, `notification_service` + disparo nos 3 eventos essenciais) estão concluídas. Falta a etapa conjunta de hardening ponta a ponta em dispositivo físico (push real e GPS real não são testáveis em simulador/CI) — ver `../front/.status/roadmap.md` §20 para o lado do front, ainda não iniciado.
+Fases 1 a 12 concluídas (auth, partidas, participação, mensagens, avaliações, denúncias, hardening e refinamentos de contrato — ver [`.status/roadmap.md`](.status/roadmap.md) para o detalhe completo). **Fase 13 — geolocalização real e notificações push** (`.status/roadmap.md` §19): as 4 tarefas deste repositório (migration de coordenadas, filtro/ordenação por distância em `GET /matches`, tabela `push_tokens` + endpoint de registro, `notification_service` + disparo nos 3 eventos essenciais) estão concluídas. Falta a etapa conjunta de hardening ponta a ponta em dispositivo físico (push real e GPS real não são testáveis em simulador/CI) — ver `../front/.status/roadmap.md` §20 para o lado do front.
+
+**Fase 15 — dívidas técnicas e evolução de escopo** (`.status/queue.md`, T2–T6): concluída — push
+token com `device_id` (logout single-device), chat em tempo real via WebSocket, upload de avatar
+via storage S3-compatible genérico, observabilidade (logs JSON, request-id, métricas Prometheus)
+e teste de carga (Locust), e gate de qualidade de CI consolidado num único status check. Ver
+`.status/roadmap.md` §20 e `.status/progress.md` para o detalhe completo.
 
 ## Seed de dados de exemplo
 
@@ -215,6 +261,7 @@ app/
 ├── services/   # regras de negócio
 └── tests/      # testes pytest
 alembic/        # migrations do banco de dados
+loadtest/       # script de teste de carga (Locust)
 .status/        # visão de produto, roadmap técnico e fila de tarefas
 ```
 

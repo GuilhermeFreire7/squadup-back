@@ -1,12 +1,19 @@
 # SquadUp Backend — Queue
 
-> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-30 (sessão 31 deste repositório). Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30, fast-forward `440ef35..30eb5d9`) e está em dia com `dev`. Para o histórico de tarefas concluídas (Fase 1 a 10, CI, updates de dependências), ver `progress.md`.
+> Sincronizado com `vision.md` e `roadmap.md` em 2026-07-30 (sessão 31 deste repositório, encerramento da continuação que implementou a Fase 15). Repositório Git em `https://github.com/GuilhermeFreire7/squadup-back`. **Branch principal de trabalho: `dev`.** `main` foi promovida pela primeira vez em 2026-07-28 (sessão 30, fast-forward `440ef35..30eb5d9`) e está em dia com `dev`. Trabalho desta sessão está em `feature/fase-15-dividas-tecnicas`, ainda não mergeada. Para o histórico de tarefas concluídas (Fases 1–15, CI, updates de dependências), ver `progress.md`.
 
 ## Em andamento
 
 _Fases 1 a 12 concluídas e mergeadas em `dev` (ver `progress.md`)._
 
-_**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28); a etapa 8 (hardening ponta a ponta em dispositivo físico) **começou** na sessão 34 do front — achou e corrigiu 7 bugs, todos do lado do front (D28–D34), confirmando o contrato deste backend como correto — mas **segue sem confirmação de teste ponta a ponta pelo usuário** na build mais recente (`fa25bd21`). **Nada bloqueado neste repositório neste momento.**_
+_**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28); a etapa 8 (hardening ponta a ponta em dispositivo físico) **começou** na sessão 34 do front — achou e corrigiu 7 bugs, todos do lado do front (D28–D34), confirmando o contrato deste backend como correto — mas **segue sem confirmação de teste ponta a ponta pelo usuário** na build mais recente (`fa25bd21`)._
+
+_**Fase 15 (dívidas técnicas T2–T6): concluída** e commitada na branch
+`feature/fase-15-dividas-tecnicas` (2026-07-30), **ainda não mergeada em `dev`** — a critério do
+usuário. Histórico completo (decisões, implementação, validação) arquivado em `progress.md`
+§"Fase 15" e `roadmap.md` §20 — não repetido aqui. Duas ações residuais viraram tarefas novas
+nesta fila: **T7** (credenciais reais de storage) e **T8** (branch protection do GitHub), ambas
+abaixo. Ver "Checkpointer" para o estado exato de retomada._
 
 ## Bloqueios
 
@@ -16,20 +23,16 @@ _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste
 
 ## Dívidas técnicas e backlog — como tarefas ordenadas
 
-> Reestruturado na sessão 31 (2026-07-30) a pedido do usuário — antes só a T1 estava registrada,
-> como um bullet solto. Ordem = prioridade sugerida, não obrigação de sequência estrita (T1 é a
-> única bloqueante; T2 é a única dívida técnica de código real; T3–T6 são evolução de escopo,
-> `roadmap.md` §17, sem data prevista). Todas as etapas são independentes entre si — não há
-> dependência técnica de uma tarefa sobre a anterior, exceto onde indicado.
+> T2–T6 (dívidas registradas na sessão 31 antes desta continuação) foram **implementadas e
+> movidas para `progress.md` §"Fase 15"** — detalhe completo lá e em `roadmap.md` §20, não
+> repetido aqui. Esta tabela contém só trabalho **ativo/pendente**: T1 (bloqueio externo,
+> inalterado) e T7/T8 (ações residuais que sobraram de T4/T6, novas nesta sessão).
 
 | # | Tarefa | Tipo | Prioridade | Status |
 |---|--------|------|-----------|--------|
 | T1 | Confirmação de teste ponta a ponta em dispositivo físico (etapa 8 da Fase 13/14) | Bloqueio externo | 🔴 Bloqueante | ⚪ Aguardando o usuário |
-| T2 | `POST /auth/logout` (single-device) não revoga o push token do dispositivo que sai | Dívida técnica | Baixa | ⚪ Aberta |
-| T3 | WebSocket para chat em tempo real | Evolução de escopo | A decidir | ⚪ Não iniciada |
-| T4 | Upload de imagens (avatar, fotos de partida) via storage S3-compatible | Evolução de escopo | A decidir | ⚪ Não iniciada |
-| T5 | Testes de carga e observabilidade (logs estruturados, métricas) | Evolução de escopo | A decidir | ⚪ Não iniciada |
-| T6 | CI/CD automatizado para deploy do backend a cada merge | Evolução de escopo | A decidir | ⚪ Não iniciada |
+| T7 | Configurar credenciais reais de storage S3-compatible (residual de T4) | Infraestrutura | Baixa | ⚪ Aberta — a critério do usuário, quando escolher provedor |
+| T8 | Configurar branch protection no GitHub exigindo o check `quality-gate` (residual de T6) | Infraestrutura | Média | ⚪ Aberta — ação manual, fora do alcance deste ambiente (sem `gh`/API) |
 
 ### T1 — Confirmação de teste ponta a ponta em dispositivo físico
 
@@ -39,36 +42,25 @@ completa o fluxo cadastro → criar partida → chat → filtro de proximidade �
 num Android físico. Quando isso acontecer, o próximo passo aqui é só registrar o resultado e
 fechar a Fase 13 formalmente em `roadmap.md`. Ver "Checkpointer" abaixo para o estado exato.
 
-### T2 — Push token não revogado em logout de um único dispositivo
+### T7 — Credenciais reais de storage S3-compatible
 
-Só `POST /auth/logout-all` remove push tokens (todos os do usuário, ver
-`auth_service.revoke_all_refresh_tokens`). O contrato de `POST /users/me/push-token` (`{ token
-}`) não associa o token a uma sessão/refresh token específico, então não há como saber com
-segurança qual push token pertence ao dispositivo saindo sem arriscar remover o de outro
-dispositivo ainda ativo do mesmo usuário. Efeito prático: um usuário que só desloga em 1 de N
-dispositivos continua podendo receber push nesse dispositivo até o token expirar/falhar na Expo
-(`DeviceNotRegistered`) ou até um `logout-all`. Baixa prioridade — não afeta segurança de dados,
-só higiene de notificação. Se resolver: ampliar o contrato de `POST /users/me/push-token` para
-receber um identificador de sessão/device — é mudança de contrato, envolve o front. Descoberto na
-sessão 30 (2026-07-28) ao implementar a Fase 13, etapa 3.
+O código de `POST /users/me/avatar` (`app/services/storage_service.py`) já fala com qualquer
+provedor S3-compatible via env vars (`S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
+`S3_ENDPOINT_URL` opcional para R2/B2/etc., ver `.env.example`). Sem essas variáveis configuradas
+(nenhuma foi configurada nesta sessão, por decisão do usuário), o endpoint responde
+`503 STORAGE_NOT_CONFIGURED` — comportamento esperado, não é bug. Ação: escolher um provedor
+(AWS S3, Cloudflare R2, Backblaze B2...), criar bucket/credenciais, e configurar as variáveis no
+Railway (produção) e/ou `.env` local. Sem prazo definido.
 
-### T3–T6 — Evolução de escopo pós-Fase 13/14 (`roadmap.md` §17)
+### T8 — Branch protection do GitHub para o `quality-gate`
 
-Nenhuma destas quatro tem data ou decisão de "vai fazer" — são a lista de possíveis próximas
-frentes depois que a Fase 13/14 fechar de vez (T1 resolvido), na mesma lista já registrada em
-`roadmap.md` §17 desde a origem do repositório, sem mudança de conteúdo nesta sessão:
-
-- **T3 — WebSocket para chat em tempo real:** hoje `GET/POST /matches/{id}/messages` é REST puro
-  (poll/refetch no front); só vira prioridade se o polling atual se mostrar insuficiente para a
-  demo ou para uso real.
-- **T4 — Upload de imagens via storage S3-compatible:** hoje `photo_url` (usuário) é só uma URL
-  externa; sem upload real de arquivo em nenhuma tela.
-- **T5 — Testes de carga e observabilidade:** sem logs estruturados nem métricas hoje além do
-  logging padrão do `uvicorn`/exceções — relevante só se o volume de uso real justificar.
-- **T6 — CI/CD automatizado para deploy a cada merge:** hoje o deploy em produção (Railway) é
-  auto-deploy simples atrelado à branch `dev` (sem pipeline de CI/CD dedicado para o deploy em
-  si, distinto do CI de lint/test/security já existente); formalizar isso só se o ritmo de
-  releases justificar o investimento.
+O job `quality-gate` (`.github/workflows/ci.yml`, Fase 15/T6) consolida `quality` +
+`alembic-check` num único status check, mas **não bloqueia merge de código quebrado** até a
+branch protection ser configurada — o job só roda e reporta. Ação manual no GitHub: Settings →
+Branches → proteger `main` (e `dev`) exigindo o check "Quality Gate (required for merge)" antes
+de permitir merge. Não foi possível automatizar isso nesta sessão por falta de `gh`/acesso à API
+do GitHub no ambiente onde o código foi escrito — retomar com `gh` disponível ou via UI do
+GitHub diretamente.
 
 ## Lições da Fase 7 (aplicar ao revisar código futuro)
 
@@ -113,8 +105,11 @@ etapas 5–7 (geolocalização e push, sessões 31–33, 2026-07-28) e **começo
 34 (achou e corrigiu 7 bugs, todos do lado do front — ver `progress.md` §"sincronização com o
 hardening..."), mas a build mais recente (`fa25bd21`) segue sem confirmação de teste ponta a
 ponta pelo usuário. T1 é o **único item bloqueante de toda a Fase 13/Fase 14**, em ambos os
-repositórios. Nenhuma ação de código pendente neste repositório até lá — ver também T2–T6 (seção
-"Dívidas técnicas e backlog") para o que existe além dessa pendência, nenhum deles bloqueante.
+repositórios — segue exatamente no mesmo estado (nenhuma ação de código é possível aqui).
+
+Fase 15 (T2–T6) está **concluída** (branch `feature/fase-15-dividas-tecnicas`, ainda não
+mergeada) — ver `progress.md` §"Fase 15" e `roadmap.md` §20. Restam só T7/T8 (ações residuais,
+seção acima), nenhuma bloqueante.
 
 ## Plano de entrega final (app + backend + TCC)
 
@@ -130,12 +125,12 @@ lado do front, as etapas 5–7 (geolocalização real e push real) também já f
 (sessões 31–33, `../squadup-front/.status/roadmap.md` §20), e a etapa 8 (hardening) **começou**
 na sessão 34 — ver T1 acima e o Checkpointer abaixo para o estado exato.
 
-**Nada de código, deploy ou infraestrutura está pendente neste repositório.** O único item
-bloqueante de toda a Fase 13/Fase 14 (em ambos os repositórios) é **T1 — hardening ponta a ponta
-em dispositivo físico** (GPS real + push real), que só pode ser feita com um device físico e
-depende do usuário/front avançar, não de mais código de backend. T2–T6 (seção "Dívidas técnicas
-e backlog") existem mas nenhum é bloqueante nem tem prazo — só entram em jogo se/quando o usuário
-decidir priorizá-los, depois que T1 fechar.
+**Atualização (2026-07-30, sessão 31, continuação — Fase 15):** T2–T6 implementadas, commitadas
+na branch `feature/fase-15-dividas-tecnicas` (ainda não mergeada em `dev`), com build/suíte
+completa validada. Restam T7 (credenciais de storage) e T8 (branch protection) — ambas
+não-bloqueantes, ver seção "Dívidas técnicas e backlog". **T1 continua sendo o único item
+bloqueante de toda a Fase 13/Fase 14** (em ambos os repositórios) — depende do usuário/front, não
+de mais código de backend.
 
 ## Notas
 
@@ -167,39 +162,55 @@ decidir priorizá-los, depois que T1 fechar.
 
 ## Checkpointer — retomar aqui na próxima sessão (sessão 31, encerrada em 2026-07-30)
 
-> Histórico das sessões 28/29/30 arquivado em `progress.md`. Este é o único Checkpointer ativo —
-> os anteriores foram consolidados lá (§"Fase 13 — tarefas 1–4 concluídas", §"Fase 13 — main
-> promovida e migration confirmada em produção" e §"Fase 13 — sincronização com o hardening e a
-> limpeza de dívidas do front").
+> Histórico das sessões 28/29/30 e da primeira parte da sessão 31 (só documentação) arquivado em
+> `progress.md`. Este é o único Checkpointer ativo.
 
-**Sessão só de documentação — nenhum código deste repositório mudou.** A pedido do usuário, esta
-sessão leu o que aconteceu no front (sessões 31–35, que tinham ficado sem eco aqui) e sincronizou
-`vision.md`, `roadmap.md` e `queue.md`, além de reestruturar as dívidas técnicas como a tabela
-T1–T6 ordenada acima. **Não há bug em aberto, nem tarefa de código, deploy ou infraestrutura
-pendente neste repositório.**
+**Estado exato de parada — nada em andamento, nenhum bug aberto, nenhuma função pela metade.**
+A Fase 15 (T2–T6) foi implementada, validada e **commitada** nesta sessão. Não há trabalho de
+código interrompido — a sessão fechou num ponto limpo. Para retomar:
 
-- **Estado do repositório:** branch `dev`, working tree limpo antes desta sessão (só as 4
-  alterações de `.status/` desta sessão a commitar), sincronizado com `origin/dev`/`origin/main`
-  no início da sessão. Nenhuma mudança de código, dependência ou infraestrutura — só os 4
-  arquivos de `.status/`. Suíte completa (`pytest`/`ruff`/`black`/`mypy --strict`/`bandit`)
-  reconfirmada verde ao final, sem necessidade real já que nada em `app/` mudou.
-- **O que mudou do lado do front desde a última sincronização (sessão 30):** sessões 31–33 (já
-  refletidas aqui antes), sessão 34 (hardening real em dispositivo físico — achou e corrigiu 7
-  bugs, D28–D34, **todos do lado do front**; os dois mais próximos deste backend, D33/senha e
-  D34/e-mail, **confirmaram que os schemas Pydantic aqui sempre estiveram corretos** — ver
-  "Lições das sessões 34–35 do front" acima) e sessão 35 (limpeza de 5 dívidas técnicas de baixa
-  prioridade do front, sem qualquer efeito neste repositório). Detalhe completo em `progress.md`
-  §"Fase 13 — sincronização com o hardening e a limpeza de dívidas do front".
-- **T1 (único item bloqueante, ambos os repositórios) — inalterado:** hardening ponta a ponta em
-  dispositivo físico. A build EAS mais recente do front (`fa25bd21`, commit `3dcd0dd`) **segue
-  sem confirmação de teste ponta a ponta pelo usuário** — mesmo estado documentado desde o fim da
-  sessão 30. Não é tarefa de código: exige um device físico e não pode ser feita/simulada aqui.
+- **Commit exato:** `c860977` — "feat: implementa dividas tecnicas T2-T6 (push por dispositivo,
+  chat WebSocket, upload de avatar, observabilidade, gate de qualidade)", na branch
+  `feature/fase-15-dividas-tecnicas` (criada a partir de `dev`, que estava em `f75435a`).
+  `git status` limpo (working tree sem alterações pendentes) na branch imediatamente após o
+  commit. **Ainda não houve push nem PR** — só commit local, a critério do usuário decidir o
+  próximo passo (push/PR/merge) na próxima sessão.
+- **Build verificado nesta sessão, após o commit:** suíte completa
+  (`SECRET_KEY=ci-test-secret-key python -m pytest`) → 161 passed, 98.87% cobertura (gate 80%);
+  `ruff check .`, `black --check .`, `mypy app` (strict) e
+  `bandit -c pyproject.toml -r app --exclude app/tests -ll` → todos verdes; `alembic upgrade
+  head` + `alembic check` → aplica limpo, sem operação pendente de autogenerate. Também subiu a
+  aplicação de verdade via `uvicorn app.main:app` e confirmou `GET /health` (200) e `GET
+  /metrics` (200, formato Prometheus) respondendo, com log estruturado JSON incluindo
+  `request_id` aparecendo no stdout — tudo funcionando, não só testes unitários.
+- **O que foi implementado (resumo — detalhe completo em `progress.md` §"Fase 15" e
+  `roadmap.md` §20):** T2 (`PushToken.device_id`, logout single-device revoga só aquele token),
+  T3 (`WS /matches/{id}/ws?token=<jwt>`, broadcast cruzado REST↔WS via
+  `app/core/ws_manager.py`), T4 (`POST /users/me/avatar`, storage S3-compatible genérico via
+  `app/services/storage_service.py`), T5 (logs JSON + `request_id` via
+  `app/core/middleware.py`/`app/core/logging.py`, métricas em `GET /metrics` via
+  `app/core/metrics.py`, `loadtest/locustfile.py`), T6 (`quality-gate` em
+  `.github/workflows/ci.yml`).
+- **Duas pendências residuais viraram tarefas novas (T7/T8, seção "Dívidas técnicas e
+  backlog" acima) — nenhuma bloqueante, nenhuma de código:**
+  1. **T7:** nenhuma credencial real de storage foi configurada (`S3_BUCKET`/
+     `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` vazias) — `POST /users/me/avatar` responde
+     `503 STORAGE_NOT_CONFIGURED` até isso ser configurado (comportamento esperado, não bug).
+  2. **T8:** a branch protection do GitHub para exigir o check `quality-gate` **não foi
+     configurada** — não havia `gh`/acesso à API do GitHub disponível neste ambiente. O job
+     roda e reporta, mas ainda não bloqueia merge de código quebrado.
+- **T1 (único item bloqueante de toda a Fase 13/Fase 14, ambos os repositórios) — inalterado:**
+  hardening ponta a ponta em dispositivo físico. A build EAS mais recente do front (`fa25bd21`,
+  commit `3dcd0dd`) **segue sem confirmação de teste ponta a ponta pelo usuário**. Não é tarefa
+  de código: exige um device físico e não pode ser feita/simulada aqui.
 - **Do lado do front, ainda não mergeada:** a branch `chore/tech-debt-cleanup` (sessão 35, front)
-  está commitada mas aguardando revisão/merge em `dev` do lado de lá — não afeta este repositório
-  de nenhuma forma, é só contexto para não estranhar se o front citar essa branch numa próxima
+  segue commitada mas aguardando revisão/merge em `dev` do lado de lá — não afeta este
+  repositório, é só contexto para não estranhar se o front citar essa branch numa próxima
   conversa.
-- **Próximo passo sugerido para a próxima sessão:** perguntar ao usuário se já rodou o
-  hardening em dispositivo físico (T1); se sim, registrar o resultado e fechar a Fase 13/14
-  formalmente em `roadmap.md`. Se não, não há nada mais a fazer neste repositório — sugerir T2–T6
-  (seção "Dívidas técnicas e backlog" acima) como possíveis próximas frentes, a critério do
-  usuário, só depois que T1 fechar.
+- **Próximo passo sugerido para a próxima sessão (nenhum é urgente, todos a critério do
+  usuário):** (1) decidir se/quando dar `git push` e abrir PR de
+  `feature/fase-15-dividas-tecnicas` para `dev` (perguntado nesta sessão, usuário optou por
+  fechar a sessão antes de decidir); (2) configurar T7 (credenciais de storage) quando escolher
+  provedor; (3) configurar T8 (branch protection) manualmente no GitHub; (4) perguntar se o
+  usuário já rodou o hardening em dispositivo físico (T1) — se sim, registrar o resultado e
+  fechar a Fase 13/14 formalmente em `roadmap.md`.

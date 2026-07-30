@@ -26,3 +26,15 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str = Field(examples=["ZmFrZS1yZWZyZXNoLXRva2VuLXZhbHVl..."])
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(examples=["ZmFrZS1yZWZyZXNoLXRva2VuLXZhbHVl..."])
+    device_id: str | None = Field(
+        default=None,
+        min_length=1,
+        examples=["a1b2c3d4-device-installation-id"],
+        description="Se informado (mesmo valor enviado em `POST /users/me/push-token`), "
+        "revoga também apenas o push token deste dispositivo, sem afetar outras sessões "
+        "ativas do mesmo usuário.",
+    )

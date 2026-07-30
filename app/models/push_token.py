@@ -14,6 +14,7 @@ class PushToken(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)
     token: str = Field(unique=True, index=True)
+    device_id: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     user: "User" = Relationship(back_populates="push_tokens")
