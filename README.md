@@ -8,7 +8,7 @@ Contexto completo do produto e do roadmap técnico em [`.status/`](.status/):
 - [`queue.md`](.status/queue.md) — tarefas ativas e próximos passos
 - [`progress.md`](.status/progress.md) — histórico de tarefas concluídas
 
-> **Branch de trabalho principal: `dev`.** A branch `main` recebe merges apenas quando o time decidir promover uma versão estável.
+> **Branch de trabalho principal: `dev`.** A branch `main` recebe merges apenas quando o time decidir promover uma versão estável — promovida pela primeira vez em 2026-07-28 (fast-forward, sem divergência) e mantida em dia com `dev` desde então.
 
 ## Stack
 
@@ -155,7 +155,14 @@ consideradas: Render (equivalente, mas Postgres é um serviço separado a mais p
 Fly.io (mais controle e edge global, mas exige Dockerfile/`flyctl`/volumes — complexidade que
 não se paga nesta etapa).
 
-Passos para o primeiro deploy:
+**Deploy já em produção** (`squadup-api.up.railway.app`), com auto-deploy do GitHub ativado na
+branch `dev`. Confirmado em 2026-07-28: o deploy do commit que trouxe a Fase 13 (geolocalização e
+notificações push) subiu com sucesso e `alembic upgrade head` aplicou a migration pendente —
+validado via `GET /health` (200) e `GET /matches?lat=...&lng=...&radius_km=...` (200, sem erro de
+schema).
+
+Passos que descrevem como o primeiro deploy foi configurado (referência para recriar o ambiente,
+não uma ação pendente):
 
 1. Criar um projeto no Railway a partir deste repositório GitHub (branch `dev` ou `main`,
    conforme decidido na hora do deploy) e adicionar um addon **PostgreSQL**.

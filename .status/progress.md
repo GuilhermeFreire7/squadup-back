@@ -335,3 +335,17 @@ A pedido do usuário, retomado o trabalho no backend (destravado desde 2026-07-1
 **Falta para fechar a Fase 13 por completo:** etapa 8 (hardening ponta a ponta em dispositivo físico), que depende do front implementar as etapas 5–7 primeiro (`../squadup-front/.status/roadmap.md` §20) — fora do escopo desta sessão, que cobriu só o backend, a pedido do usuário.
 
 Branch `feature/fase-13-geo-push`, cortada de `dev`, commitada ao final desta sessão.
+
+## Fase 13 — main promovida e migration confirmada em produção (sessão 30, continuação, 2026-07-28)
+
+Com as tarefas 1–4 já mergeadas em `dev` via PR #50 (seção anterior), esta continuação da sessão 30 fechou os dois itens de infraestrutura que ainda restavam em aberto no `queue.md` ("Próximo passo sugerido"): promover `main` pela primeira vez e confirmar a migration da Fase 13 em produção.
+
+**1. Promoção de `dev` → `main` (primeira vez):** `main` estava 112 commits atrás de `dev` desde a Fase 1, sem nenhuma divergência (`git merge-base --is-ancestor main dev` confirmou ancestralidade — nenhum merge real foi necessário). Fast-forward puro (`440ef35..30eb5d9`), sem conflitos. Push para `origin/main` autorizado explicitamente pelo usuário e executado por ele.
+
+**2. Verificação da migration da Fase 13 em produção (Railway):** o serviço `squadup-api.up.railway.app` (visto no dashboard do usuário) rastreia a branch `dev` com auto-deploy ativado — não é necessário rodar `alembic upgrade head` manualmente via CLI, pois o `Procfile` já encadeia `alembic upgrade head && uvicorn ...` a cada deploy. O push de um commit de documentação (`550516c`, que já carrega todo o histórico da Fase 13 por trás) disparou um novo deploy automático, confirmado como "Deployment successful" no dashboard. Validado com requisições reais contra a API de produção: `GET /health` → `200`; `GET /matches?lat=-23.5&lng=-46.6&radius_km=20` → `200` com `[]` (sem erro de coluna inexistente, confirmando que `latitude`/`longitude` existem no schema de produção).
+
+**Decisão de abordagem:** Railway CLI não estava instalado/autenticado no ambiente de desenvolvimento local, então a migration não foi rodada via `railway run alembic upgrade head` — em vez disso, o auto-deploy existente (branch `dev` → Railway) fez o trabalho, e a confirmação veio de inspecionar o dashboard (print do usuário) e bater diretamente na API pública, não de acesso a infraestrutura.
+
+**Resultado:** as duas últimas dívidas técnicas de infraestrutura registradas em `queue.md` desde a Fase 13 (main atrasada; migration não aplicada em produção) estão resolvidas. Nenhuma mudança de código nesta continuação — só git (fast-forward + push) e verificação. Documentação sincronizada em `queue.md`, `roadmap.md` e `README.md`.
+
+**Commits desta continuação:** `550516c` (docs: sincroniza queue.md após promoção de dev para main), `f735cbf` (docs: confirma migration da Fase 13 aplicada em produção).
