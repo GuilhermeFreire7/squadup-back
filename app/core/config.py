@@ -22,6 +22,21 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     cors_origins: Annotated[list[str], NoDecode] = DEFAULT_CORS_ORIGINS
 
+    # Storage S3-compatible (T4 — upload de avatar). Genérico por design: funciona com AWS S3,
+    # Cloudflare R2, Backblaze B2 etc. sem mudar código, só as variáveis de ambiente. Se
+    # `s3_bucket`/`s3_access_key_id`/`s3_secret_access_key` não estiverem configurados, o
+    # endpoint de upload de avatar responde 503 `STORAGE_NOT_CONFIGURED` em vez de quebrar.
+    s3_endpoint_url: str | None = None
+    s3_region: str = "auto"
+    s3_bucket: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_public_url_base: str | None = None
+
+    # Observabilidade (T5). Se `metrics_token` estiver configurado, GET /metrics exige o header
+    # `X-Metrics-Token` correspondente — em dev/CI, sem token configurado, o endpoint fica aberto.
+    metrics_token: str | None = None
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

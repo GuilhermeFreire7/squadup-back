@@ -1,4 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
+
+from app.services import storage_service
 
 VALID_PAYLOAD = {
     "name": "Ana Souza",
@@ -116,6 +119,82 @@ def test_register_push_token_rejects_missing_token(client: TestClient) -> None:
     response = client.post(
         "/users/me/push-token",
         json={"token": "ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_upload_avatar_updates_photo_url(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+    monkeypatch.setattr(
+        storage_service,
+        "upload_avatar",
+        lambda user_id, content, content_type: "https://cdn/avatar.jpg",
+    )
+
+    response = client.post(
+        "/users/me/avatar",
+        files={"file": ("avatar.jpg", b"fake-bytes", "image/jpeg")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["photo_url"] == "https://cdn/avatar.jpg"
+
+
+def test_upload_avatar_rejects_unsupported_content_type(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+    monkeypatch.setattr(
+        storage_service, "upload_avatar", lambda user_id, content, content_type: "https://cdn/x"
+    )
+
+    response = client.post(
+        "/users/me/avatar",
+        files={"file": ("avatar.gif", b"fake-bytes", "image/gif")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_IMAGE_TYPE"
+
+
+def test_upload_avatar_rejects_file_too_large(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+    oversized = b"x" * (storage_service.MAX_AVATAR_SIZE_BYTES + 1)
+
+    response = client.post(
+        "/users/me/avatar",
+        files={"file": ("avatar.jpg", oversized, "image/jpeg")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "IMAGE_TOO_LARGE"
+
+
+def test_upload_avatar_returns_503_when_storage_not_configured(client: TestClient) -> None:
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+
+    response = client.post(
+        "/users/me/avatar",
+        files={"file": ("avatar.jpg", b"fake-bytes", "image/jpeg")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "STORAGE_NOT_CONFIGURED"
+
+
+def test_upload_avatar_rejects_missing_token(client: TestClient) -> None:
+    response = client.post(
+        "/users/me/avatar",
+        files={"file": ("avatar.jpg", b"fake-bytes", "image/jpeg")},
     )
 
     assert response.status_code == 401

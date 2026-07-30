@@ -90,10 +90,14 @@ Endpoints mínimos para cobrir, com dados reais, os mesmos fluxos já navegávei
 
 ## 8. Fora do escopo nesta etapa
 
-Herdado do front (`vision.md`, seção 14) e ainda válido do lado do backend:
+Herdado do front (`vision.md`, seção 14) e ainda válido do lado do backend, com as exceções já
+implementadas registradas nas atualizações abaixo:
 
-- chat em tempo real via WebSocket (a v1 pode ser poll/REST);
-- upload real de imagens (avatar/fotos de partida) — pode começar com URLs externas;
+- ~~chat em tempo real via WebSocket~~ — **implementado na Fase 15** (ver atualização de
+  2026-07-30 abaixo); REST/poll continua disponível também, WebSocket é aditivo;
+- upload real de imagens: **avatar implementado na Fase 15** (ver abaixo); fotos de partida
+  continuam fora de escopo (`Match` não tem campo de foto — nenhum caso de uso pedindo isso
+  ainda);
 - pagamento ou reserva real de quadras;
 - sistema de moderação sofisticado (fila com SLA, múltiplos moderadores, auditoria) — o suficiente é replicar as 3 ações já previstas no protótipo (arquivar, advertir, banir).
 
@@ -131,6 +135,16 @@ o princípio já registrado em `queue.md`: os schemas Pydantic são a fonte úni
 contrato; divergência encontrada se corrige em quem se desviou dela. Item 8 (hardening) da Fase
 13/14 **continua em aberto** — a build mais recente do front (`fa25bd21`) segue sem confirmação de
 teste ponta a ponta pelo usuário.
+
+**Atualização (2026-07-30, sessão 31, continuação — Fase 15):** a pedido do usuário, as dívidas
+técnicas/evolução de escopo registradas em `queue.md` (T2–T6) foram implementadas de uma vez,
+numa branch própria (`feature/fase-15-dividas-tecnicas`, ainda não mergeada em `dev`). Duas
+alterações mudam declarações desta seção: **chat em tempo real via WebSocket** e **upload real
+de avatar** (via storage S3-compatible genérico, `boto3`) deixam de ser "fora de escopo" — ver
+`roadmap.md` §20 para o detalhe técnico completo. Também entraram nesta fase, sem relação com o
+modelo de dados original: revogação de push token por dispositivo no logout single-device,
+observabilidade (logs estruturados, métricas Prometheus) e um gate de qualidade de CI. Nenhuma
+credencial real de storage foi configurada ainda (decisão do usuário, ver `queue.md`).
 
 ## 9. Critérios de sucesso do MVP com backend
 

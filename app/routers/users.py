@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlmodel import Session
 
 from app.core.database import get_session
@@ -7,8 +7,15 @@ from app.models.user import User
 from app.schemas.errors import AUTH_ERRORS, error_responses
 from app.schemas.push_token import PushTokenCreate
 from app.schemas.user import MyProfileRead, PublicProfileRead, UserUpdate
+from app.services import storage_service
 from app.services.push_token_service import register_push_token
-from app.services.user_service import build_my_profile, get_public_profile, update_my_profile
+from app.services.storage_service import ALLOWED_AVATAR_CONTENT_TYPES, MAX_AVATAR_SIZE_BYTES
+from app.services.user_service import (
+    build_my_profile,
+    get_public_profile,
+    update_avatar,
+    update_my_profile,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -55,7 +62,45 @@ def register_push_token_route(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> None:
-    register_push_token(session, current_user.id, payload.token)
+    register_push_token(session, current_user.id, payload.token, payload.device_id)
+
+
+@router.post(
+    "/me/avatar",
+    response_model=MyProfileRead,
+    summary="Enviar foto de perfil",
+    description="Envia uma imagem (JPEG/PNG/WebP, até 5MB) como avatar do usuário autenticado "
+    "e atualiza `photo_url`. Requer storage S3-compatible configurado no ambiente.",
+    responses=error_responses(
+        *AUTH_ERRORS,
+        (400, "INVALID_IMAGE_TYPE", "Tipo de imagem não suportado. Use JPEG, PNG ou WebP."),
+        (400, "IMAGE_TOO_LARGE", "Imagem maior que o limite de 5MB."),
+        (503, "STORAGE_NOT_CONFIGURED", "Upload de imagem indisponível: storage não configurado."),
+    ),
+)
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> MyProfileRead:
+    if file.content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_IMAGE_TYPE",
+                "message": "Tipo de imagem não suportado. Use JPEG, PNG ou WebP.",
+            },
+        )
+
+    content = await file.read()
+    if len(content) > MAX_AVATAR_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "IMAGE_TOO_LARGE", "message": "Imagem maior que o limite de 5MB."},
+        )
+
+    photo_url = storage_service.upload_avatar(current_user.id, content, file.content_type)
+    return update_avatar(session, current_user, photo_url)
 
 
 @router.get(

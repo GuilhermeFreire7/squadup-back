@@ -418,3 +418,88 @@ Documentos atualizados nesta sessão: `vision.md` §8 (nota de confirmação de 
 reestruturada como lista ordenada de tarefas — antes só um bullet solto — e novo Checkpointer).
 `pytest`/`ruff`/`black`/`mypy --strict`/`bandit` reconfirmados verdes (nenhum código mudou, só
 verificação de que o repositório segue são antes de fechar a sessão).
+
+## Fase 15 — Dívidas técnicas e evolução de escopo (T2–T6, concluída e pronta para PR)
+
+> A pedido do usuário (sessão 31, 2026-07-30), todas as dívidas/evolução de escopo listadas em
+> `queue.md` (T2–T6) foram implementadas numa única batch, na branch
+> `feature/fase-15-dividas-tecnicas`. T3–T6 estavam marcadas como "a decidir, sem data prevista"
+> — decisões de escopo fechadas com o usuário antes de implementar (ver abaixo) para não
+> arriscar retrabalho por escolha errada de arquitetura.
+
+### Decisões de escopo fechadas antes de implementar
+
+- **T4 (storage):** genérico via variáveis de ambiente (`boto3`, `endpoint_url` configurável) em
+  vez de acoplar a um provedor específico — funciona com AWS S3, Cloudflare R2, Backblaze B2 etc.
+  sem mudar código.
+- **T2 (push token no logout):** `device_id` opcional adicionado ao contrato de
+  `POST /users/me/push-token` (mudança de contrato aditiva, não quebra clientes existentes).
+- **T3 (WebSocket):** autenticação via `token` na query string da conexão (não em header — Expo
+  não tem controle fino de headers em WebSocket nativo).
+- **T6 (CI/CD):** "formalizar" interpretado como gate de qualidade (CI como required check),
+  não um pipeline de deploy separado — evita depender de um novo secret (`RAILWAY_TOKEN`) já que
+  o Railway continua fazendo o deploy físico via auto-deploy nativo.
+
+### T2 — Push token no logout single-device
+
+`PushToken.device_id` (nullable, indexado) via migration `052fdc2388be`. `PushTokenCreate` e
+`POST /users/me/push-token` passam a aceitar `device_id` opcional. Novo `LogoutRequest` schema
+(`refresh_token` + `device_id` opcional) substitui `RefreshRequest` só em `POST /auth/logout`
+(sem afetar `POST /auth/refresh`); se `device_id` for informado, `revoke_push_token_by_device`
+remove só o(s) token(s) daquele dispositivo. Sem `device_id`, comportamento idêntico ao anterior.
+
+### T3 — WebSocket para chat em tempo real
+
+`WS /matches/{id}/ws?token=<jwt>`, registrado num router separado (`ws_router`, prefixo
+`/matches/{match_id}`) porque `APIRouter` não permite prefixos diferentes no mesmo router do
+REST de mensagens. `app/core/ws_manager.py::ChatConnectionManager` mantém conexões ativas por
+partida em memória (um único processo — suficiente para o MVP, mesmo racional do purge de
+refresh tokens no startup). Mesma validação de acesso do REST, reaproveitada via novo
+`message_service.ensure_chat_access` (extraído das funções privadas já existentes). Mensagens
+enviadas via REST são propagadas ao WS (e vice-versa) via `BackgroundTasks.add_task(manager.broadcast, ...)`
+— inclusive o disparo de push nos 3 eventos já existentes. Testado com `TestClient.websocket_connect`
+(broadcast cruzado REST↔WS, rejeição por token inválido/sem acesso/partida inexistente com
+códigos de fechamento `4401`/`4403`/`4404`).
+
+**Cuidado descoberto durante a implementação:** a primeira versão usava
+`with Session(engine) as session:` direto (import do `engine` de produção) dentro do handler do
+WebSocket — isso ignorava silenciosamente o `dependency_overrides[get_session]` que os testes
+usam para injetar o banco em memória isolado, então os testes pareciam passar mas não validavam
+nada de verdade (usariam o SQLite de produção). Corrigido usando `Depends(get_session)` como em
+qualquer outro endpoint — FastAPI resolve `Depends` normalmente em rotas WebSocket, respeitando
+overrides de teste. **Lição para qualquer WebSocket futuro: nunca importar `engine` diretamente
+num router, sempre via `Depends(get_session)`, mesmo em handlers de conexão persistente.**
+
+### T4 — Upload de avatar via storage S3-compatible
+
+`app/services/storage_service.py::upload_avatar` (novo), `POST /users/me/avatar` (multipart,
+JPEG/PNG/WebP até 5MB). Sem `S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` configurados,
+responde `503 STORAGE_NOT_CONFIGURED` em vez de quebrar — nenhuma credencial real foi configurada
+nesta sessão (decisão do usuário: implementar o código agora, credenciais reais ficam para
+quando o provedor for escolhido). `boto3-stubs[s3]` adicionado para o `mypy --strict` não falhar
+em "missing library stubs".
+
+### T5 — Observabilidade e teste de carga
+
+`structlog` (JSON, `app/core/logging.py`) + `RequestContextMiddleware`
+(`app/core/middleware.py`, gera/propaga `request_id`, devolve `X-Request-ID`, alimenta as
+métricas) + `prometheus-client` (`GET /metrics`, protegido por `METRICS_TOKEN` opcional).
+Script de carga básico em `loadtest/locustfile.py` (Locust) — cadastro/login, listagem de
+partidas, perfil.
+
+### T6 — Gate de qualidade antes do deploy
+
+Novo job `quality-gate` em `.github/workflows/ci.yml`, que falha se `quality` ou
+`alembic-check` não tiverem sucesso — pensado para ser o único status check exigido na branch
+protection do GitHub. **Ação manual pendente, não automatizável aqui:** faltou `gh`/acesso à API
+do GitHub neste ambiente para configurar de fato a branch protection de `main`/`dev` exigindo
+esse check — o job existe e roda, mas ainda não bloqueia merge até essa configuração manual ser
+feita (ver README.md, seção "Gate de qualidade antes do deploy").
+
+### Validação final
+
+161 testes (35 novos desde a Fase 13), 98.87% de cobertura (gate mínimo 80%), `ruff`/`black`/
+`mypy --strict`/`bandit -ll` e `alembic check` (migration `052fdc2388be` aplica limpo, sem
+operações pendentes de autogenerate) todos verdes. `README.md` e `.env.example` atualizados com
+os 5 novos endpoints/variáveis de ambiente. Branch pronta para revisão/PR — merge em `dev` ainda
+não feito, a critério do usuário.

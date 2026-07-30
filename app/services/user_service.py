@@ -58,3 +58,11 @@ def update_my_profile(session: Session, user: User, payload: UserUpdate) -> MyPr
     session.commit()
     session.refresh(user)
     return build_my_profile(session, user)
+
+
+def update_avatar(session: Session, user: User, photo_url: str) -> MyProfileRead:
+    user.photo_url = photo_url
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return build_my_profile(session, user)

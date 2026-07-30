@@ -51,6 +51,17 @@ def _confirmed_recipient_ids(session: Session, match: Match, exclude_user_id: st
     return list(recipient_ids)
 
 
+def ensure_chat_access(session: Session, match_id: str, user: User) -> Match:
+    """Valida acesso ao chat da partida e devolve a partida, se autorizado.
+
+    Reaproveitado pelo handshake do WebSocket do chat (`app/routers/messages.py`), que precisa
+    do mesmo critério de acesso do REST (`_ensure_can_access_chat`) antes de aceitar a conexão.
+    """
+    match = _get_match_or_404(session, match_id)
+    _ensure_can_access_chat(session, match, user)
+    return match
+
+
 def build_message_read(session: Session, message: Message) -> MessageRead:
     return MessageRead(
         id=message.id,
