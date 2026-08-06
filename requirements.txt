@@ -12,7 +12,7 @@ python-multipart>=0.0.12,<1.0
 psycopg[binary]>=3.3.4,<4.0  # driver Postgres para produção (DATABASE_URL=postgresql+psycopg://...)
 httpx>=0.28.1,<1.0  # cliente HTTP para a Expo Push API (app/services/notification_service.py)
 boto3>=1.35,<2.0  # cliente S3-compatible genérico para upload de avatar (app/services/storage_service.py)
-structlog>=25.1,<26.0  # logging estruturado em JSON (app/core/logging.py)
+structlog>=26.1.0,<27.0  # logging estruturado em JSON (app/core/logging.py)
 prometheus-client>=0.21,<1.0  # métricas expostas em GET /metrics
 
 pytest>=9.1.1,<10.0
