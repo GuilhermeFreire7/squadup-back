@@ -187,35 +187,52 @@ sem isso, o gate roda e reporta, mas ainda não bloqueia merge de código quebra
 
 ## Deploy
 
-**Hospedagem decidida: [Railway](https://railway.app/).** Motivos: Postgres gerenciado nativo
-(um addon, sem provisionar infraestrutura separada), deploy automático a partir do GitHub
-(mesmo fluxo de PR/branch já usado no CI), variáveis de ambiente via painel (mesmo modelo do
-`pydantic-settings` já usado aqui) e custo compatível com o estágio de MVP. Alternativas
-consideradas: Render (equivalente, mas Postgres é um serviço separado a mais para configurar) e
-Fly.io (mais controle e edge global, mas exige Dockerfile/`flyctl`/volumes — complexidade que
-não se paga nesta etapa).
+**Hospedagem: VPS própria via [Oracle Cloud "Always Free"](https://www.oracle.com/cloud/free/)
+(Ampere A1, arm64).** Migrado do Railway (trial expirado) em 2026-09. Motivo: tier gratuito sem
+prazo de validade (diferente do trial do Railway), com recursos generosos (até 4 OCPU/24GB RAM
+"Always Free", sem custo) — em troca de gerenciar a infraestrutura (Postgres, TLS, deploy) que
+antes era responsabilidade do Railway. Empacotado com **Docker Compose** (`api` + `db` Postgres +
+`caddy` como reverse proxy com HTTPS automático via Let's Encrypt), único jeito prático de
+reproduzir "Postgres gerenciado + deploy automático" fora de uma plataforma paga.
 
-**Deploy já em produção** (`squadup-api.up.railway.app`), com auto-deploy do GitHub ativado na
-branch `dev`. Confirmado em 2026-07-28: o deploy do commit que trouxe a Fase 13 (geolocalização e
-notificações push) subiu com sucesso e `alembic upgrade head` aplicou a migration pendente —
-validado via `GET /health` (200) e `GET /matches?lat=...&lng=...&radius_km=...` (200, sem erro de
-schema).
+Arquivos relevantes: `Dockerfile` (imagem da API, multi-stage, `python:3.12-slim`, compatível
+com arm64), `docker-compose.yml` (`api`/`db`/`caddy`), `Caddyfile` (reverse proxy, lê o hostname
+de `SITE_ADDRESS`), `.env.example` (todas as variáveis, incluindo as só usadas em produção —
+`POSTGRES_PASSWORD`, `SITE_ADDRESS`), `.github/workflows/deploy.yml` (CD via SSH, dispara em
+push para `dev`).
 
-Passos que descrevem como o primeiro deploy foi configurado (referência para recriar o ambiente,
-não uma ação pendente):
+### Provisionar a VPS (ação manual, feita uma vez)
 
-1. Criar um projeto no Railway a partir deste repositório GitHub (branch `dev` ou `main`,
-   conforme decidido na hora do deploy) e adicionar um addon **PostgreSQL**.
-2. Definir as variáveis de ambiente do serviço da API: `SECRET_KEY` (valor aleatório forte, não
-   o placeholder de dev), `ENVIRONMENT=production`, `CORS_ORIGINS` com a URL real do app
-   publicado (Expo/EAS). `DATABASE_URL` é injetada automaticamente pelo addon de Postgres no
-   formato `postgresql://...` — trocar o prefixo para `postgresql+psycopg://` para usar o
-   driver `psycopg` (já em `requirements.txt`).
-3. O `Procfile` (`alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`) é
-   detectado automaticamente pelo Nixpacks do Railway — a cada deploy, as migrations pendentes
-   são aplicadas antes do servidor subir.
-4. Rodar `python -m app.seed` manualmente (via Railway CLI/shell) apenas se for necessário um
-   banco de produção com dados de exemplo — não faz parte do fluxo automático de deploy.
+1. Criar conta na [Oracle Cloud](https://signup.oraclecloud.com/) (cartão de crédito exigido só
+   para verificação de identidade — o tier "Always Free" não cobra).
+2. Criar uma instância **Compute** com shape **VM.Standard.A1.Flex** (Ampere/arm64, Always
+   Free — recomendado: 4 OCPU / 24GB RAM, o máximo gratuito), imagem **Ubuntu** (22.04 ou mais
+   recente), e gerar/baixar o par de chaves SSH na criação. **A capacidade do shape A1 esgota com
+   frequência** ("Out of host capacity") — se acontecer, tentar de novo (outro Availability
+   Domain, ou aguardar e tentar em outro horário) antes de cair para o shape x86 Always Free
+   (`VM.Standard.E2.1.Micro`, só 1GB RAM — apertado para rodar API+Postgres+Caddy juntos).
+3. Abrir as portas **80 e 443** na Security List/NSG da VCN (rede) — sem isso, o tráfego nem
+   chega na VM. **Abrir também no firewall local da VM** (imagens Ubuntu da Oracle vêm com
+   `iptables`/`netfilter-persistent` bloqueando tudo exceto SSH por padrão) — o passo mais comum
+   de ser esquecido nesse provedor especificamente.
+4. Instalar Docker + plugin `docker-compose` na VM (`curl -fsSL https://get.docker.com | sh` +
+   `apt-get install -y docker-compose-plugin`), clonar este repositório, copiar
+   `.env.example` → `.env` e preencher os valores reais.
+5. `docker compose up -d --build` na VM. Validar `GET /health` (200) através de
+   `https://<SITE_ADDRESS>/health`.
+
+### Deploy contínuo
+
+`.github/workflows/deploy.yml` conecta via SSH na VM a cada push em `dev` e roda
+`git pull && docker compose up -d --build` — precisa de 3 secrets no GitHub (Settings → Secrets
+and variables → Actions): `DEPLOY_HOST` (IP público da VM), `DEPLOY_USER` (usuário SSH, ex.
+`ubuntu`), `DEPLOY_SSH_KEY` (chave privada correspondente à chave pública autorizada na VM).
+Sem esses secrets configurados, o job falha (mas não bloqueia CI/merge — é um workflow
+independente).
+
+Rodar `python -m app.seed` manualmente (via `docker compose exec api python -m app.seed`) apenas
+se for necessário um banco de produção com dados de exemplo — não faz parte do fluxo automático
+de deploy.
 
 ## Modelo de dados
 

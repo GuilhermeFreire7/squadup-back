@@ -4,6 +4,32 @@
 
 ## Em andamento
 
+_**Migração de infra (2026-09-09):** o trial gratuito do Railway acabou — o backend precisa de
+um novo host antes que T1 (hardening ponta a ponta) possa ser retestado contra produção.
+Decisão do usuário: VPS própria via Oracle Cloud "Always Free" (Ampere A1), Docker Compose
+(`api`+`db` Postgres+`caddy` para HTTPS automático via Let's Encrypt, hostname via `nip.io` já
+que não há domínio próprio). Branch `infra/oracle-cloud-deploy` criada a partir de `dev`._
+
+_**Feito nesta sessão (sem depender da VM existir):** `Dockerfile` (multi-stage, `python:3.12-
+slim`, compatível arm64), `docker-compose.yml`, `Caddyfile`, `.dockerignore`,
+`.github/workflows/deploy.yml` (CD via SSH em push para `dev`, precisa de 3 secrets no GitHub:
+`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`, ainda não configurados), `.env.example` atualizado
+(`POSTGRES_PASSWORD`, `SITE_ADDRESS`, `REFRESH_TOKEN_EXPIRE_DAYS` que faltava), `README.md`
+"Deploy" reescrito. `docker compose config` validado localmente (sintaxe/variáveis OK); **não foi
+possível fazer o smoke test completo (`docker compose up --build`) neste ambiente** — `docker
+pull` falhou por timeout de rede ao alcançar o Docker Hub (limitação do ambiente de trabalho
+atual, não do compose file em si). Validar isso na própria VM antes de confiar 100% na sintaxe._
+
+_**Pendente (ação do usuário, fora do alcance deste ambiente):** criar conta na Oracle Cloud,
+provisionar a VM Always Free (Ampere A1 — capacidade esgota com frequência, pode exigir
+retentativas), abrir portas 80/443 na Security List da VCN **e** no firewall local da VM (Ubuntu
+da Oracle vem com `iptables` bloqueando tudo exceto SSH por padrão — pegadinha comum desse
+provedor). Depois disso, falta só: copiar `.env.example`→`.env` com valores reais na VM, `docker
+compose up -d --build`, configurar os 3 secrets do GitHub Actions, e então atualizar
+`../squadup-front/eas.json` (`preview`/`production`) e `.env.example` com a URL nova (hoje
+apontam pra `squadup-api.up.railway.app`) — ver `README.md` "Deploy" para o passo-a-passo
+completo. Só depois disso o T1 abaixo pode ser retestado contra produção de novo._
+
 _Fases 1 a 12 concluídas e mergeadas em `dev` (ver `progress.md`)._
 
 _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28); a etapa 8 (hardening ponta a ponta em dispositivo físico) **começou** na sessão 34 do front — achou e corrigiu 7 bugs, todos do lado do front (D28–D34), confirmando o contrato deste backend como correto — mas **segue sem confirmação de teste ponta a ponta pelo usuário** na build mais recente (`fa25bd21`)._
