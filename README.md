@@ -187,8 +187,35 @@ sem isso, o gate roda e reporta, mas ainda não bloqueia merge de código quebra
 
 ## Deploy
 
-**Hospedagem: VPS própria via [Oracle Cloud "Always Free"](https://www.oracle.com/cloud/free/)
-(Ampere A1, arm64).** Migrado do Railway (trial expirado) em 2026-09. Motivo: tier gratuito sem
+**Hospedagem atual (2026-10): API no [Render](https://render.com) (plano free) + Postgres no
+[Neon](https://neon.tech) (plano free).** O trial do Railway expirou em 2026-09; a VPS na Oracle
+Cloud (abaixo) foi preparada como alternativa, mas Render + Neon reproduz o fluxo do Railway
+(deploy automático a partir do GitHub, HTTPS e banco gerenciado) sem precisar administrar uma VM.
+O Postgres gratuito do próprio Render não é usado porque expira em ~30 dias.
+
+Trade-offs do plano free: a API **hiberna após ~15 min sem tráfego** e leva cerca de 1 min para
+acordar na requisição seguinte (antes de uma demo, acessar `/health` com antecedência); o compute
+do Neon também suspende quando ocioso — `pool_pre_ping=True` em `app/core/database.py` descarta
+conexões derrubadas por isso.
+
+### Render + Neon (ação manual, feita uma vez)
+
+1. No Neon, criar um projeto na região **AWS us-east-1** (mesma região do serviço no Render) e
+   copiar a connection string (`postgresql://...?sslmode=require`). Pode colar como veio:
+   `Settings` troca o prefixo `postgres://`/`postgresql://` por `postgresql+psycopg://`
+   automaticamente (o driver instalado é o `psycopg` v3, não o `psycopg2`).
+2. No Render, **New → Blueprint**, apontar para este repositório. O `render.yaml` cria o serviço
+   `squadup-api` (branch `dev`, build `pip install -r requirements.txt`, start com
+   `alembic upgrade head` + `uvicorn`, health check em `/health`) e gera `SECRET_KEY` e
+   `METRICS_TOKEN`; só `DATABASE_URL` precisa ser preenchida (a string do Neon).
+3. Validar `https://<serviço>.onrender.com/health` (200). Push em `dev` dispara deploy automático.
+4. Opcional: popular o banco com dados de exemplo rodando `python -m app.seed` localmente com
+   `DATABASE_URL` apontando para o Neon (o shell do Render não está disponível no plano free).
+
+### Alternativa: VPS na Oracle Cloud
+
+**VPS própria via [Oracle Cloud "Always Free"](https://www.oracle.com/cloud/free/)
+(Ampere A1, arm64).** Preparada após o fim do trial do Railway (2026-09). Motivo: tier gratuito sem
 prazo de validade (diferente do trial do Railway), com recursos generosos (até 4 OCPU/24GB RAM
 "Always Free", sem custo) — em troca de gerenciar a infraestrutura (Postgres, TLS, deploy) que
 antes era responsabilidade do Railway. Empacotado com **Docker Compose** (`api` + `db` Postgres +
@@ -201,7 +228,7 @@ de `SITE_ADDRESS`), `.env.example` (todas as variáveis, incluindo as só usadas
 `POSTGRES_PASSWORD`, `SITE_ADDRESS`), `.github/workflows/deploy.yml` (CD via SSH, dispara em
 push para `dev`).
 
-### Provisionar a VPS (ação manual, feita uma vez)
+#### Provisionar a VPS (ação manual, feita uma vez)
 
 1. Criar conta na [Oracle Cloud](https://signup.oraclecloud.com/) (cartão de crédito exigido só
    para verificação de identidade — o tier "Always Free" não cobra).
@@ -221,9 +248,11 @@ push para `dev`).
 5. `docker compose up -d --build` na VM. Validar `GET /health` (200) através de
    `https://<SITE_ADDRESS>/health`.
 
-### Deploy contínuo
+#### Deploy contínuo (VPS)
 
-`.github/workflows/deploy.yml` conecta via SSH na VM a cada push em `dev` e roda
+`.github/workflows/deploy.yml` (hoje só com disparo manual, `workflow_dispatch`, já que a
+hospedagem ativa é o Render; restaurar o gatilho `push` em `dev` se voltar para a VPS) conecta
+via SSH na VM e roda
 `git pull && docker compose up -d --build` — precisa de 3 secrets no GitHub (Settings → Secrets
 and variables → Actions): `DEPLOY_HOST` (IP público da VM), `DEPLOY_USER` (usuário SSH, ex.
 `ubuntu`), `DEPLOY_SSH_KEY` (chave privada correspondente à chave pública autorizada na VM).
