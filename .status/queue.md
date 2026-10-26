@@ -16,6 +16,15 @@ disparo manual, README "Deploy" reescrito. 165/165 testes, ruff/black/mypy limpo
 `*.onrender.com` e gerar build EAS nova. Os arquivos da Oracle seguem no repositório como
 alternativa._
 
+_**CI quebrado pós-merge do PR #63 (2026-10-26) — causa externa, não do código do PR:**
+`requirements.txt` usava faixas abertas; o CI passou a instalar `sqlmodel 0.0.48` (+
+`SQLAlchemy 2.1.6`), que **rejeita `datetime` naive** (`ValueError: Datetime values must have
+timezone information`) — o projeto grava UTC naive de propósito (`utc_now_naive`, lição da
+Fase 11). Efeito: 124 erros no pytest e 6 no mypy (`Report(reason="spam")`, o `__init__` passou a
+ser tipado). Teria quebrado a produção no Render também. Corrigido fixando `sqlmodel<0.0.43` e
+`sqlalchemy<2.1` (últimas versões validadas pelo CI verde de 2026-09-09). **Dívida (T9):** migrar
+para datetime com timezone antes de liberar o sqlmodel — fora do escopo até a defesa._
+
 _**Migração de infra (2026-09-09):** o trial gratuito do Railway acabou — o backend precisa de
 um novo host antes que T1 (hardening ponta a ponta) possa ser retestado contra produção.
 Decisão do usuário: VPS própria via Oracle Cloud "Always Free" (Ampere A1), Docker Compose
