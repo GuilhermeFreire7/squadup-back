@@ -4,6 +4,18 @@
 
 ## Em andamento
 
+_**Hospedagem — decisão revista (2026-10-26):** em vez da VPS Oracle (nunca provisionada), a
+produção passa a ser **Render (API, plano free) + Neon (Postgres, plano free)** — mesmo fluxo do
+Railway (deploy a partir do GitHub), sem administrar VM, suficiente até a defesa (dez/2026).
+Branch `infra/render-neon-deploy`: `render.yaml` (Blueprint), `.python-version` (3.12),
+`Settings.database_url` normaliza `postgres://`/`postgresql://` → `postgresql+psycopg://`,
+`pool_pre_ping=True` no engine (Neon suspende o compute ocioso), `deploy.yml` da Oracle só com
+disparo manual, README "Deploy" reescrito. 165/165 testes, ruff/black/mypy limpos.
+**Pendente (usuário):** criar projeto no Neon (us-east-1) + Blueprint no Render com
+`DATABASE_URL`; depois trocar `EXPO_PUBLIC_API_URL` no front (`eas.json`/`.env`) pela URL
+`*.onrender.com` e gerar build EAS nova. Os arquivos da Oracle seguem no repositório como
+alternativa._
+
 _**Migração de infra (2026-09-09):** o trial gratuito do Railway acabou — o backend precisa de
 um novo host antes que T1 (hardening ponta a ponta) possa ser retestado contra produção.
 Decisão do usuário: VPS própria via Oracle Cloud "Always Free" (Ampere A1), Docker Compose

@@ -44,6 +44,17 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    # Provedores gerenciados (Neon, Render, Heroku...) entregam a connection string como
+    # `postgres://` ou `postgresql://`, que o SQLAlchemy resolveria para o driver `psycopg2`
+    # (não instalado). Força o driver `psycopg` (v3) já presente em requirements.txt.
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, value: str) -> str:
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value.removeprefix(prefix)
+        return value
+
 
 @lru_cache
 def get_settings() -> Settings:

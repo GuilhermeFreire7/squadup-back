@@ -1,8 +1,8 @@
 name: Deploy
 
+# Só disparo manual enquanto a hospedagem ativa for o Render (que faz o próprio deploy a partir
+# de `dev`) — com push automático, o job falharia a cada push por falta dos secrets da VPS.
 on:
-  push:
-    branches: [dev]
   workflow_dispatch:
 
 concurrency:

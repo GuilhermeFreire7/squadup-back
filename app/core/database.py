@@ -7,7 +7,9 @@ from app.core.config import get_settings
 settings = get_settings()
 
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-engine = create_engine(settings.database_url, connect_args=connect_args)
+# `pool_pre_ping`: Postgres serverless (Neon) suspende o compute quando ocioso e derruba as
+# conexões abertas — sem o ping, a primeira requisição depois disso falharia com conexão morta.
+engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
 
 
 def create_db_and_tables() -> None:
