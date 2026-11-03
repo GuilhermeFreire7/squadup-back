@@ -4,6 +4,62 @@
 
 ## Em andamento
 
+_**Revisão geral 2026-11, item A3 (2026-11-03) — PR aberto, aguardando revisão:** branch
+`fix/regras-organizador-partida`. O organizador passa a entrar como `Participant` `confirmed` ao
+criar a partida (ocupa vaga, mesma convenção do seed). Antes, quem criava uma partida pelo app via
+"Participar" na própria partida, sem "Encerrar"/chat, e nunca avaliava nem era avaliado. `leave`
+passa a recusar partida `closed`/`cancelled` (`MATCH_NOT_LEAVABLE`, impede escapar da avaliação)
+e o organizador (`ORGANIZER_CANNOT_LEAVE`). Produção conferida por leitura (GETs públicos): as 13
+partidas são do seed e todas têm o organizador como participante, então não há dado a corrigir.
+Relatório completo em `../squadup-front/.status/revisao-geral-2026-11.md`._
+
+_**Hospedagem — decisão revista (2026-10-26):** em vez da VPS Oracle (nunca provisionada), a
+produção passa a ser **Render (API, plano free) + Neon (Postgres, plano free)** — mesmo fluxo do
+Railway (deploy a partir do GitHub), sem administrar VM, suficiente até a defesa (dez/2026).
+Branch `infra/render-neon-deploy`: `render.yaml` (Blueprint), `.python-version` (3.12),
+`Settings.database_url` normaliza `postgres://`/`postgresql://` → `postgresql+psycopg://`,
+`pool_pre_ping=True` no engine (Neon suspende o compute ocioso), `deploy.yml` da Oracle só com
+disparo manual, README "Deploy" reescrito. 165/165 testes, ruff/black/mypy limpos.
+**Pendente (usuário):** criar projeto no Neon (us-east-1) + Blueprint no Render com
+`DATABASE_URL`; depois trocar `EXPO_PUBLIC_API_URL` no front (`eas.json`/`.env`) pela URL
+`*.onrender.com` e gerar build EAS nova. Os arquivos da Oracle seguem no repositório como
+alternativa._
+
+_**CI quebrado pós-merge do PR #63 (2026-10-26) — causa externa, não do código do PR:**
+`requirements.txt` usava faixas abertas; o CI passou a instalar `sqlmodel 0.0.48` (+
+`SQLAlchemy 2.1.6`), que **rejeita `datetime` naive** (`ValueError: Datetime values must have
+timezone information`) — o projeto grava UTC naive de propósito (`utc_now_naive`, lição da
+Fase 11). Efeito: 124 erros no pytest e 6 no mypy (`Report(reason="spam")`, o `__init__` passou a
+ser tipado). Teria quebrado a produção no Render também. Corrigido fixando `sqlmodel<0.0.43` e
+`sqlalchemy<2.1` (últimas versões validadas pelo CI verde de 2026-09-09). **Dívida (T9):** migrar
+para datetime com timezone antes de liberar o sqlmodel — fora do escopo até a defesa._
+
+_**Migração de infra (2026-09-09):** o trial gratuito do Railway acabou — o backend precisa de
+um novo host antes que T1 (hardening ponta a ponta) possa ser retestado contra produção.
+Decisão do usuário: VPS própria via Oracle Cloud "Always Free" (Ampere A1), Docker Compose
+(`api`+`db` Postgres+`caddy` para HTTPS automático via Let's Encrypt, hostname via `nip.io` já
+que não há domínio próprio). Branch `infra/oracle-cloud-deploy` criada a partir de `dev`._
+
+_**Feito nesta sessão (sem depender da VM existir):** `Dockerfile` (multi-stage, `python:3.12-
+slim`, compatível arm64), `docker-compose.yml`, `Caddyfile`, `.dockerignore`,
+`.github/workflows/deploy.yml` (CD via SSH em push para `dev`, precisa de 3 secrets no GitHub:
+`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`, ainda não configurados), `.env.example` atualizado
+(`POSTGRES_PASSWORD`, `SITE_ADDRESS`, `REFRESH_TOKEN_EXPIRE_DAYS` que faltava), `README.md`
+"Deploy" reescrito. `docker compose config` validado localmente (sintaxe/variáveis OK); **não foi
+possível fazer o smoke test completo (`docker compose up --build`) neste ambiente** — `docker
+pull` falhou por timeout de rede ao alcançar o Docker Hub (limitação do ambiente de trabalho
+atual, não do compose file em si). Validar isso na própria VM antes de confiar 100% na sintaxe._
+
+_**Pendente (ação do usuário, fora do alcance deste ambiente):** criar conta na Oracle Cloud,
+provisionar a VM Always Free (Ampere A1 — capacidade esgota com frequência, pode exigir
+retentativas), abrir portas 80/443 na Security List da VCN **e** no firewall local da VM (Ubuntu
+da Oracle vem com `iptables` bloqueando tudo exceto SSH por padrão — pegadinha comum desse
+provedor). Depois disso, falta só: copiar `.env.example`→`.env` com valores reais na VM, `docker
+compose up -d --build`, configurar os 3 secrets do GitHub Actions, e então atualizar
+`../squadup-front/eas.json` (`preview`/`production`) e `.env.example` com a URL nova (hoje
+apontam pra `squadup-api.up.railway.app`) — ver `README.md` "Deploy" para o passo-a-passo
+completo. Só depois disso o T1 abaixo pode ser retestado contra produção de novo._
+
 _Fases 1 a 12 concluídas e mergeadas em `dev` (ver `progress.md`)._
 
 _**Fase 13 (geolocalização real + notificações push):** tarefas 1–4 (deste repositório) concluídas e mergeadas em `dev` via **PR #50** (2026-07-28) — ver "Checkpointer" abaixo e `progress.md` §"Fase 13 — tarefas 1–4 concluídas" para o detalhe completo. Do lado do front (`../squadup-front/.status/roadmap.md` §20), as etapas 5–6 (geolocalização) e 7 (push: `useNotificationRegistration`, listener de navegação, `projectId` do EAS gerado) já foram concluídas (sessões 31–33, 2026-07-28); a etapa 8 (hardening ponta a ponta em dispositivo físico) **começou** na sessão 34 do front — achou e corrigiu 7 bugs, todos do lado do front (D28–D34), confirmando o contrato deste backend como correto — mas **segue sem confirmação de teste ponta a ponta pelo usuário** na build mais recente (`fa25bd21`)._

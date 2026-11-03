@@ -1,0 +1,25 @@
+# Blueprint do Render (https://render.com/docs/blueprint-spec) — API no plano gratuito, com o
+# Postgres hospedado no Neon (o Postgres gratuito do próprio Render expira em ~30 dias).
+# Ver README.md "Deploy" para o passo a passo.
+services:
+  - type: web
+    name: squadup-api
+    runtime: python
+    plan: free
+    # Mesma região AWS do projeto Neon (us-east-1) para minimizar latência API↔banco.
+    region: virginia
+    branch: dev
+    buildCommand: pip install -r requirements.txt
+    # Plano free não tem preDeployCommand — migrations rodam no start, como no Procfile.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false # preenchida no dashboard com a connection string do Neon
+      - key: SECRET_KEY
+        generateValue: true
+      - key: METRICS_TOKEN
+        generateValue: true
