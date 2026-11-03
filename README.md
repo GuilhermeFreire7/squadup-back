@@ -73,7 +73,7 @@ evita que a tabela cresça indefinidamente sem exigir infraestrutura de schedule
 
 - `GET /users/me` — perfil completo do usuário autenticado (`Authorization: Bearer <token>`), incluindo `average_rating` e `matches_played`.
 - `PATCH /users/me` — atualiza campos do próprio perfil (`name`, `photo_url`, `age`, `location`, `bio`, `favorite_sports`, `level`); aceita atualização parcial.
-- `GET /users/{id}` — perfil público de qualquer usuário (sem `email`/`role`), com as mesmas métricas derivadas.
+- `GET /users/{id}` — perfil público de qualquer usuário (sem `email`/`role`), com as mesmas métricas derivadas. Exige autenticação (`401` sem token): o perfil traz idade, bairro, bio e foto, que não devem ficar abertos na internet.
 - `POST /users/me/avatar` — envia uma imagem (`multipart/form-data`, campo `file`; JPEG/PNG/WebP, até 5MB) como avatar do usuário autenticado, atualizando `photo_url`. `400 INVALID_IMAGE_TYPE` se o tipo não for suportado, `400 IMAGE_TOO_LARGE` se exceder 5MB, `503 STORAGE_NOT_CONFIGURED` se o storage S3-compatible não estiver configurado no ambiente (ver `.env.example`).
 
 `average_rating` (média de `Rating.overall`) e `matches_played` (contagem de `Participant.status == confirmed`) são sempre calculados na consulta em `app/services/user_service.py` — nunca armazenados como coluna solta, para não divergirem dos dados reais.
@@ -86,7 +86,7 @@ configurável — só as variáveis de ambiente mudam entre provedores, sem alte
 ## Partidas
 
 - `GET /matches` — lista partidas com filtros opcionais via query string: `sport`, `date`, `location` (busca parcial, case-insensitive), `level`, `has_open_slots` (só partidas com vagas disponíveis), e busca geográfica opcional via `lat`/`lng`/`radius_km` (default `20`km) — quando `lat`/`lng` são informados juntos, a listagem é filtrada por raio e ordenada por distância (`distance_km` no corpo da resposta); sem eles, comportamento inalterado.
-- `GET /matches/{id}` — detalhes de uma partida, com `organizer` e `participants` expandidos (perfil público de cada um); `404 MATCH_NOT_FOUND` se não existir.
+- `GET /matches/{id}` — detalhes de uma partida, com `organizer` e `participants` expandidos (perfil público de cada um); exige autenticação (`401` sem token); `404 MATCH_NOT_FOUND` se não existir. A listagem `GET /matches` continua pública: não traz perfis, só `organizer_id`.
 - `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners`, `requires_approval` e `latitude`/`longitude` são opcionais. O organizador entra automaticamente como `Participant` `confirmed` e ocupa uma vaga (com `max_participants: 1`, a partida já nasce `full`). Sem isso, ele não acessaria chat/encerramento pela tela de detalhes do app nem poderia avaliar ou ser avaliado.
 
 `confirmed_count` e `available_slots` são sempre calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca um campo solto no model `Match`, para não divergir da contagem real de participantes.
@@ -120,7 +120,7 @@ Ao criar uma partida (`POST /matches`), o servidor emite automaticamente uma pri
 ## Avaliação pós-partida
 
 - `POST /matches/{id}/ratings/{userId}` — usuário autenticado avalia outro usuário com os 5 critérios (`punctuality`, `respect`, `behavior`, `presence`, `overall`, cada um de 1 a 5) e `comment` opcional. Regras de negócio aplicadas no servidor: `400 MATCH_NOT_CLOSED` se `match.status != closed`; `400 CANNOT_RATE_SELF` se tentar avaliar a si mesmo; `403 NOT_MATCH_PARTICIPANT` se o avaliador não tinha `Participant.status == confirmed` nessa partida; `400 RATED_USER_NOT_PARTICIPANT` se o avaliado não tinha `confirmed` nessa partida; `400 ALREADY_RATED` se o mesmo par avaliador/avaliado já tiver uma avaliação para essa partida.
-- `GET /users/{id}/ratings` — lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` e `rated_user` expandidos como perfil público (mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`; `RatingRead` não expõe mais `rated_user_id` solto). `RatingRead.match` também é expandido como `MatchRef` (`id, title, sport, date`) em vez de um `match_id` solto, para o front não precisar de uma segunda chamada para saber a que partida a avaliação se refere.
+- `GET /users/{id}/ratings` — exige autenticação (`401` sem token); lista as avaliações recebidas por um usuário, mais recentes primeiro, com `rater` e `rated_user` expandidos como perfil público (mesmo padrão de `MessageRead.sender`/`ParticipantRead.user`; `RatingRead` não expõe mais `rated_user_id` solto). `RatingRead.match` também é expandido como `MatchRef` (`id, title, sport, date`) em vez de um `match_id` solto, para o front não precisar de uma segunda chamada para saber a que partida a avaliação se refere.
 
 `average_rating` do perfil (`GET /users/{id}`, `GET /users/me`) é sempre recalculado a partir das linhas de `ratings` — nenhuma avaliação é somada manualmente a um total solto.
 

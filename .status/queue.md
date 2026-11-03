@@ -4,7 +4,7 @@
 
 ## Em andamento
 
-_**Revisão geral 2026-11, item A3 (2026-11-03) — PR aberto, aguardando revisão:** branch
+_**Revisão geral 2026-11, item A3 (2026-11-03) — mergeado em `dev` (PR #65):** branch
 `fix/regras-organizador-partida`. O organizador passa a entrar como `Participant` `confirmed` ao
 criar a partida (ocupa vaga, mesma convenção do seed). Antes, quem criava uma partida pelo app via
 "Participar" na própria partida, sem "Encerrar"/chat, e nunca avaliava nem era avaliado. `leave`
@@ -71,6 +71,14 @@ checkpointer da sessão 31 tinha sido escrito antes do merge acontecer). Histór
 não repetido aqui. Duas ações residuais seguem como tarefas abertas: **T7** (credenciais reais de
 storage) e **T8** (branch protection do GitHub), ambas abaixo. `main` ainda não recebeu esse
 merge — ver "Checkpointer" para o estado exato._
+
+_**Revisão geral 2026-11, item A1 (2026-11-03) — PR aberto, aguardando revisão:** branch
+`fix/auth-leitura-perfis`. `GET /users/{id}`, `GET /users/{id}/ratings` e `GET /matches/{id}`
+passam a exigir autenticação. Antes, qualquer pessoa na internet lia nome, idade, bairro, bio e
+foto dos participantes, enumeráveis a partir dos `organizer_id` de `GET /matches` (OWASP
+API1/API3, minimização da LGPD). `GET /matches` continua público. O app só chama as três rotas em
+telas pós-login, então a build atual segue compatível. Relatório em
+`../squadup-front/.status/revisao-geral-2026-11.md`._
 
 ## Bloqueios
 

@@ -255,8 +255,9 @@ def test_read_match_detail_expands_organizer_and_participants(
         Participant(match_id=match.id, user_id=player.id, status=ParticipationStatus.CONFIRMED)
     )
     session.commit()
+    token = _register_and_login(client, email="viewer@example.com")
 
-    response = client.get(f"/matches/{match.id}")
+    response = client.get(f"/matches/{match.id}", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
     body = response.json()
@@ -270,11 +271,33 @@ def test_read_match_detail_returns_404_for_unknown_match(
     db_client: tuple[TestClient, Session],
 ) -> None:
     client, _ = db_client
+    token = _register_and_login(client, email="viewer@example.com")
 
-    response = client.get("/matches/does-not-exist")
+    response = client.get("/matches/does-not-exist", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "MATCH_NOT_FOUND"
+
+
+def test_read_match_detail_rejects_missing_token(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    match = _make_match(session, "match-1", organizer)
+
+    response = client.get(f"/matches/{match.id}")
+
+    assert response.status_code == 401
+
+
+def test_list_matches_stays_public(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "match-1", organizer)
+
+    response = client.get("/matches")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
 
 
 def test_create_match_sets_authenticated_user_as_organizer(

@@ -108,8 +108,10 @@ async def upload_my_avatar(
     response_model=PublicProfileRead,
     summary="Perfil público",
     description="Retorna o perfil público de um usuário, com métricas derivadas de avaliações e "
-    "partidas.",
+    "partidas. Visível apenas para usuários autenticados.",
+    dependencies=[Depends(get_current_user)],
     responses=error_responses(
+        *AUTH_ERRORS,
         (404, "USER_NOT_FOUND", "Usuário não encontrado."),
     ),
 )

@@ -77,8 +77,11 @@ def read_matches(
     response_model=MatchDetailRead,
     summary="Detalhes da partida",
     description="Retorna os detalhes de uma partida, com organizador e participantes "
-    "expandidos.",
+    "expandidos. Exige autenticação, porque expõe o perfil público de cada participante "
+    "(a listagem `GET /matches` continua pública e não traz perfis).",
+    dependencies=[Depends(get_current_user)],
     responses=error_responses(
+        *AUTH_ERRORS,
         (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
     ),
 )
