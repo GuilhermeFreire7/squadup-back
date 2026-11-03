@@ -503,3 +503,35 @@ feita (ver README.md, seção "Gate de qualidade antes do deploy").
 operações pendentes de autogenerate) todos verdes. `README.md` e `.env.example` atualizados com
 os 5 novos endpoints/variáveis de ambiente. Branch pronta para revisão/PR — merge em `dev` ainda
 não feito, a critério do usuário.
+
+## Revisão geral 2026-11 — A3: regras de participação do organizador (2026-11-03)
+
+Origem: item A3 de `../squadup-front/.status/revisao-geral-2026-11.md`. Branch
+`fix/regras-organizador-partida`.
+
+**Problema:** `create_match` não criava o `Participant` do organizador. O seed sempre incluiu o
+organizador como `confirmed`, o que escondia o efeito. Numa partida criada pelo app:
+
+- a tela de detalhes mostrava "Participar" para o organizador, e os botões "Chat da partida" e
+  "Encerrar partida" (que o front só mostra para participante confirmado) não apareciam;
+- o organizador não podia avaliar nem ser avaliado (`create_rating` exige os dois lados
+  `confirmed`).
+
+Na mesma área, `leave_match` não checava o status: dava para sair de uma partida encerrada (e
+escapar da avaliação) e o organizador podia sair da própria partida.
+
+**Mudanças:**
+
+- `create_match` adiciona o organizador como `confirmed` na mesma transação da partida e chama
+  `_sync_match_status` (com `max_participants: 1`, a partida já nasce `full`).
+- `leave_match`: `400 MATCH_NOT_LEAVABLE` para partida `closed`/`cancelled`;
+  `400 ORGANIZER_CANNOT_LEAVE` para o organizador. Os dois checks vêm antes de `NOT_PARTICIPATING`.
+- Swagger (descrições e `error_responses`) e README atualizados.
+
+**Dados de produção:** conferidos só por leitura (`GET /matches` e `GET /matches/{id}`). As 13
+partidas são do seed (`match-1`…`match-13`) e todas têm o organizador como participante
+(`match-10`, cancelada, com o organizador `cancelled`). Nenhuma correção de dados é necessária.
+
+**Testes:** 170 (5 novos, 2 ajustados), 98,80% de cobertura; `ruff`/`black`/`mypy` limpos. O
+teste que esperava `leave` permitido em partida encerrada foi invertido, e agora é parametrizado
+para encerrada e cancelada.

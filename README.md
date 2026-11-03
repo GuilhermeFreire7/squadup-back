@@ -87,7 +87,7 @@ configurável — só as variáveis de ambiente mudam entre provedores, sem alte
 
 - `GET /matches` — lista partidas com filtros opcionais via query string: `sport`, `date`, `location` (busca parcial, case-insensitive), `level`, `has_open_slots` (só partidas com vagas disponíveis), e busca geográfica opcional via `lat`/`lng`/`radius_km` (default `20`km) — quando `lat`/`lng` são informados juntos, a listagem é filtrada por raio e ordenada por distância (`distance_km` no corpo da resposta); sem eles, comportamento inalterado.
 - `GET /matches/{id}` — detalhes de uma partida, com `organizer` e `participants` expandidos (perfil público de cada um); `404 MATCH_NOT_FOUND` se não existir.
-- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners`, `requires_approval` e `latitude`/`longitude` são opcionais.
+- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners`, `requires_approval` e `latitude`/`longitude` são opcionais. O organizador entra automaticamente como `Participant` `confirmed` e ocupa uma vaga (com `max_participants: 1`, a partida já nasce `full`). Sem isso, ele não acessaria chat/encerramento pela tela de detalhes do app nem poderia avaliar ou ser avaliado.
 
 `confirmed_count` e `available_slots` são sempre calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca um campo solto no model `Match`, para não divergir da contagem real de participantes.
 
@@ -96,7 +96,7 @@ configurável — só as variáveis de ambiente mudam entre provedores, sem alte
 ## Participação em partida
 
 - `POST /matches/{id}/join` — usuário autenticado solicita participação; cria `Participant` como `confirmed` (partidas sem `requires_approval`) ou `pending` (aguardando aprovação do organizador); `400 MATCH_NOT_JOINABLE` se a partida estiver `closed`/`cancelled`, `400 MATCH_FULL` se não houver vagas e a partida não exigir aprovação, `400 ALREADY_PARTICIPATING` se já houver participação ativa.
-- `POST /matches/{id}/leave` — cancela a participação do usuário autenticado; `400 NOT_PARTICIPATING` se não houver participação ativa.
+- `POST /matches/{id}/leave` — cancela a participação do usuário autenticado; `400 MATCH_NOT_LEAVABLE` se a partida estiver `closed`/`cancelled` (depois do encerramento, sair permitiria escapar da avaliação), `400 ORGANIZER_CANNOT_LEAVE` se quem chama for o organizador, `400 NOT_PARTICIPATING` se não houver participação ativa.
 - `POST /matches/{id}/participants/{userId}/approve` — organizador confirma uma solicitação `pending`; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `404 PENDING_PARTICIPANT_NOT_FOUND` se não houver solicitação pendente para o usuário, `400 MATCH_FULL` se as vagas já tiverem sido preenchidas.
 - `POST /matches/{id}/close` — organizador encerra a partida manualmente (`status → closed`), pré-requisito para o fluxo de avaliação pós-partida; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `400 MATCH_ALREADY_RESOLVED` se a partida já estiver `closed`/`cancelled`.
 

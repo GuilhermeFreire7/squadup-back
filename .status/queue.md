@@ -4,6 +4,15 @@
 
 ## Em andamento
 
+_**Revisão geral 2026-11, item A3 (2026-11-03) — PR aberto, aguardando revisão:** branch
+`fix/regras-organizador-partida`. O organizador passa a entrar como `Participant` `confirmed` ao
+criar a partida (ocupa vaga, mesma convenção do seed). Antes, quem criava uma partida pelo app via
+"Participar" na própria partida, sem "Encerrar"/chat, e nunca avaliava nem era avaliado. `leave`
+passa a recusar partida `closed`/`cancelled` (`MATCH_NOT_LEAVABLE`, impede escapar da avaliação)
+e o organizador (`ORGANIZER_CANNOT_LEAVE`). Produção conferida por leitura (GETs públicos): as 13
+partidas são do seed e todas têm o organizador como participante, então não há dado a corrigir.
+Relatório completo em `../squadup-front/.status/revisao-geral-2026-11.md`._
+
 _**Hospedagem — decisão revista (2026-10-26):** em vez da VPS Oracle (nunca provisionada), a
 produção passa a ser **Render (API, plano free) + Neon (Postgres, plano free)** — mesmo fluxo do
 Railway (deploy a partir do GitHub), sem administrar VM, suficiente até a defesa (dez/2026).

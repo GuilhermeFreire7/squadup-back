@@ -5,7 +5,7 @@ from typing import cast
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from app.core.database import get_session
@@ -293,11 +293,64 @@ def test_create_match_sets_authenticated_user_as_organizer(
     body = response.json()
     assert body["title"] == MATCH_CREATE_PAYLOAD["title"]
     assert body["status"] == "open"
-    assert body["confirmed_count"] == 0
-    assert body["available_slots"] == MATCH_CREATE_PAYLOAD["max_participants"]
+    assert body["confirmed_count"] == 1
+    assert body["available_slots"] == cast(int, MATCH_CREATE_PAYLOAD["max_participants"]) - 1
 
     me_response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
     assert body["organizer_id"] == me_response.json()["id"]
+
+
+def test_create_match_adds_organizer_as_confirmed_participant(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    match_id = client.post("/matches", json=MATCH_CREATE_PAYLOAD, headers=headers).json()["id"]
+    detail = client.get(f"/matches/{match_id}", headers=headers).json()
+
+    assert detail["participants"] == [
+        {"user": detail["organizer"], "status": "confirmed"},
+    ]
+
+
+def test_create_match_with_single_slot_is_full_with_organizer(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    payload = {**MATCH_CREATE_PAYLOAD, "max_participants": 1}
+
+    response = client.post("/matches", json=payload, headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "full"
+    assert body["available_slots"] == 0
+
+
+def test_organizer_of_created_match_can_close_and_rate_participant(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, _ = db_client
+    organizer_headers = {"Authorization": f"Bearer {_register_and_login(client)}"}
+    player_token = _register_and_login(client, email="player@example.com")
+    match_id = client.post("/matches", json=MATCH_CREATE_PAYLOAD, headers=organizer_headers).json()[
+        "id"
+    ]
+    _join(client, match_id, player_token)
+    client.post(f"/matches/{match_id}/close", headers=organizer_headers)
+    player_id = client.get("/users/me", headers={"Authorization": f"Bearer {player_token}"}).json()[
+        "id"
+    ]
+    rating = {"punctuality": 5, "respect": 5, "behavior": 5, "presence": 5, "overall": 5}
+
+    response = client.post(
+        f"/matches/{match_id}/ratings/{player_id}", json=rating, headers=organizer_headers
+    )
+
+    assert response.status_code == 201
 
 
 def test_create_match_emits_system_message(db_client: tuple[TestClient, Session]) -> None:
@@ -521,22 +574,40 @@ def test_leave_match_reopens_full_match(db_client: tuple[TestClient, Session]) -
     assert response.json()["status"] == "open"
 
 
-def test_leave_match_on_closed_match_keeps_status_closed(
+@pytest.mark.parametrize("resolved_status", [MatchStatus.CLOSED, MatchStatus.CANCELLED])
+def test_leave_match_rejects_closed_or_cancelled_match(
     db_client: tuple[TestClient, Session],
+    resolved_status: MatchStatus,
 ) -> None:
     client, session = db_client
     organizer = _make_user(session, "u1", "Alice")
     match = _make_match(session, "match-1", organizer, max_participants=4)
     token = _register_and_login(client, email="player@example.com")
     _join(client, match.id, token)
-    match.status = MatchStatus.CLOSED
+    match.status = resolved_status
     session.add(match)
     session.commit()
 
     response = _leave(client, match.id, token)
 
-    assert response.status_code == 200
-    assert response.json()["status"] == "closed"
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "MATCH_NOT_LEAVABLE"
+    participant = session.exec(select(Participant).where(Participant.match_id == match.id)).one()
+    assert participant.status == ParticipationStatus.CONFIRMED
+
+
+def test_leave_match_rejects_organizer(db_client: tuple[TestClient, Session]) -> None:
+    client, _ = db_client
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    match_id = client.post("/matches", json=MATCH_CREATE_PAYLOAD, headers=headers).json()["id"]
+
+    response = _leave(client, match_id, token)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "ORGANIZER_CANNOT_LEAVE"
+    detail = client.get(f"/matches/{match_id}", headers=headers).json()
+    assert detail["confirmed_count"] == 1
 
 
 def test_join_match_after_leaving_reactivates_participant(
