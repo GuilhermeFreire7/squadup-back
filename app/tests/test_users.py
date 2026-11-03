@@ -85,10 +85,20 @@ def test_read_public_profile_hides_private_fields(client: TestClient) -> None:
 
 
 def test_read_public_profile_returns_404_for_unknown_user(client: TestClient) -> None:
-    response = client.get("/users/does-not-exist")
+    _, token = _register_and_login(client, VALID_PAYLOAD)
+
+    response = client.get("/users/does-not-exist", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "USER_NOT_FOUND"
+
+
+def test_read_public_profile_rejects_missing_token(client: TestClient) -> None:
+    user_id, _ = _register_and_login(client, VALID_PAYLOAD)
+
+    response = client.get(f"/users/{user_id}")
+
+    assert response.status_code == 401
 
 
 def test_register_push_token_returns_no_content(client: TestClient) -> None:

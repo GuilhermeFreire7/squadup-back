@@ -535,3 +535,31 @@ partidas são do seed (`match-1`…`match-13`) e todas têm o organizador como p
 **Testes:** 170 (5 novos, 2 ajustados), 98,80% de cobertura; `ruff`/`black`/`mypy` limpos. O
 teste que esperava `leave` permitido em partida encerrada foi invertido, e agora é parametrizado
 para encerrada e cancelada.
+
+## Revisão geral 2026-11 — A1: autenticação nas leituras de perfil (2026-11-03)
+
+Origem: item A1 de `../squadup-front/.status/revisao-geral-2026-11.md`. Branch
+`fix/auth-leitura-perfis`.
+
+**Problema:** três rotas que devolvem `PublicProfileRead` (nome, idade, bairro, bio, foto) não
+exigiam token:
+
+- `GET /users/{id}`;
+- `GET /users/{id}/ratings`, que traz o perfil do avaliado e do avaliador;
+- `GET /matches/{id}`, que traz organizador e participantes.
+
+Com os `organizer_id` de `GET /matches` (público), dava para enumerar e coletar os perfis de
+todos os organizadores e participantes sem conta (OWASP API1/API3:2023, minimização da LGPD).
+
+**Mudanças:**
+
+- `dependencies=[Depends(get_current_user)]` nas três rotas, que passam a responder `401` sem
+  token. O Swagger mostra `AUTH_ERRORS`.
+- `GET /matches` foi mantido público. Fechá-lo exigiria mudar o `MatchesProvider` do front, que
+  dispara antes do login, e gerar build nova. A listagem não traz perfis.
+- Compatibilidade conferida no front: as três rotas só são usadas por telas do `AppNavigator`
+  (montado após o login), então o APK atual continua funcionando.
+
+**Testes:** 4 novos (`401` sem token nas três rotas e `GET /matches` público) e 5 ajustados para
+mandar token. Depois do rebase sobre o A3 (#65, já mergeado), a suíte tem 174 testes, 98,80% de
+cobertura; `ruff`/`black`/`mypy` limpos.

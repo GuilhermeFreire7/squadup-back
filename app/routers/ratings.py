@@ -48,8 +48,11 @@ def rate_participant(
     "/users/{user_id}/ratings",
     response_model=list[RatingRead],
     summary="Avaliações recebidas por um usuário",
-    description="Lista as avaliações recebidas por um usuário, mais recentes primeiro.",
+    description="Lista as avaliações recebidas por um usuário, mais recentes primeiro. "
+    "Visível apenas para usuários autenticados.",
+    dependencies=[Depends(get_current_user)],
     responses=error_responses(
+        *AUTH_ERRORS,
         (404, "USER_NOT_FOUND", "Usuário não encontrado."),
     ),
 )

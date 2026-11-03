@@ -335,8 +335,11 @@ def test_list_ratings_received_orders_most_recent_first(
         )
     )
     session.commit()
+    token = _register_and_login(client, email="viewer@example.com")
 
-    response = client.get(f"/users/{rated.id}/ratings")
+    response = client.get(
+        f"/users/{rated.id}/ratings", headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -348,8 +351,22 @@ def test_list_ratings_received_returns_404_for_unknown_user(
     db_client: tuple[TestClient, Session],
 ) -> None:
     client, _ = db_client
+    token = _register_and_login(client, email="viewer@example.com")
 
-    response = client.get("/users/does-not-exist/ratings")
+    response = client.get(
+        "/users/does-not-exist/ratings", headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "USER_NOT_FOUND"
+
+
+def test_list_ratings_received_rejects_missing_token(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    rated = _make_user(session, "u1", "Alice")
+
+    response = client.get(f"/users/{rated.id}/ratings")
+
+    assert response.status_code == 401
