@@ -20,7 +20,12 @@ from app.core.ws_manager import manager
 from app.models.user import User
 from app.schemas.errors import AUTH_ERRORS, error_responses
 from app.schemas.message import MessageCreate, MessageRead
-from app.services.message_service import create_message, ensure_chat_access, list_messages
+from app.services.message_service import (
+    MessageOrder,
+    create_message,
+    ensure_chat_access,
+    list_messages,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,18 +52,21 @@ _CHAT_ACCESS_ERRORS = (
     "",
     response_model=list[MessageRead],
     summary="Histórico de mensagens da partida",
-    description="Lista o histórico de mensagens da partida, em ordem cronológica, paginado. "
-    "Acessível apenas ao organizador ou a participantes confirmados.",
+    description="Lista o histórico de mensagens da partida, paginado. Por padrão em ordem "
+    "cronológica (`order=asc`); com `order=desc`, as mais recentes vêm primeiro, o que permite "
+    "paginar a partir das últimas mensagens. Acessível apenas ao organizador ou a participantes "
+    "confirmados.",
     responses=error_responses(*AUTH_ERRORS, *_CHAT_ACCESS_ERRORS),
 )
 def read_messages(
     match_id: str,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, gt=0, le=100),
+    order: MessageOrder = Query(default="asc", examples=["desc"]),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[MessageRead]:
-    return list_messages(session, match_id, current_user, skip=skip, limit=limit)
+    return list_messages(session, match_id, current_user, skip=skip, limit=limit, order=order)
 
 
 @router.post(

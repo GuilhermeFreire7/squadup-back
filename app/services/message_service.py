@@ -1,5 +1,7 @@
+from typing import Literal
+
 from fastapi import BackgroundTasks, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.models.enums import ParticipationStatus
 from app.models.match import Match
@@ -12,6 +14,8 @@ from app.services.push_token_service import get_push_tokens_for_users
 from app.services.user_service import build_public_profile
 
 MAX_MESSAGES_PAGE_SIZE = 100
+
+MessageOrder = Literal["asc", "desc"]
 
 
 def _get_match_or_404(session: Session, match_id: str) -> Match:
@@ -79,15 +83,27 @@ def list_messages(
     user: User,
     skip: int = 0,
     limit: int = 50,
+    order: MessageOrder = "asc",
 ) -> list[MessageRead]:
+    """Lista mensagens paginadas.
+
+    `order="desc"` traz as mais recentes primeiro. É o que permite ao app paginar de trás para
+    frente (página 0 = últimas mensagens). Com `asc`, sem contagem total, só dava para buscar a
+    partir das mais antigas. `id` desempata mensagens com o mesmo `created_at`, para as páginas
+    não repetirem nem pularem itens.
+    """
     match = _get_match_or_404(session, match_id)
     _ensure_can_access_chat(session, match, user)
 
     limit = min(limit, MAX_MESSAGES_PAGE_SIZE)
+    created_at, message_id = col(Message.created_at), col(Message.id)
+    ordering = (
+        (created_at.desc(), message_id.desc()) if order == "desc" else (created_at, message_id)
+    )
     messages = session.exec(
         select(Message)
         .where(Message.match_id == match_id)
-        .order_by(Message.created_at)  # type: ignore[arg-type]
+        .order_by(*ordering)
         .offset(skip)
         .limit(limit)
     ).all()
