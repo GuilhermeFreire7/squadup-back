@@ -87,7 +87,7 @@ configurável — só as variáveis de ambiente mudam entre provedores, sem alte
 
 - `GET /matches` — lista partidas com filtros opcionais via query string: `sport`, `date`, `location` (busca parcial, case-insensitive), `level`, `has_open_slots` (só partidas com vagas disponíveis), e busca geográfica opcional via `lat`/`lng`/`radius_km` (default `20`km) — quando `lat`/`lng` são informados juntos, a listagem é filtrada por raio e ordenada por distância (`distance_km` no corpo da resposta); sem eles, comportamento inalterado.
 - `GET /matches/{id}` — detalhes de uma partida, com `organizer` e `participants` expandidos (perfil público de cada um); `404 MATCH_NOT_FOUND` se não existir.
-- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners`, `requires_approval` e `latitude`/`longitude` são opcionais.
+- `POST /matches` — cria uma partida com o usuário autenticado (`Authorization: Bearer <token>`) como `organizer`; requer `sport`, `title`, `location`, `date`, `time`, `max_participants` (> 0), `level`; `allow_beginners`, `requires_approval` e `latitude`/`longitude` são opcionais. O organizador entra automaticamente como `Participant` `confirmed` e ocupa uma vaga (com `max_participants: 1`, a partida já nasce `full`). Sem isso, ele não acessaria chat/encerramento pela tela de detalhes do app nem poderia avaliar ou ser avaliado.
 
 `confirmed_count` e `available_slots` são sempre calculados em `app/services/match_service.py` a partir de `Participant.status == confirmed` — nunca um campo solto no model `Match`, para não divergir da contagem real de participantes.
 
@@ -96,7 +96,7 @@ configurável — só as variáveis de ambiente mudam entre provedores, sem alte
 ## Participação em partida
 
 - `POST /matches/{id}/join` — usuário autenticado solicita participação; cria `Participant` como `confirmed` (partidas sem `requires_approval`) ou `pending` (aguardando aprovação do organizador); `400 MATCH_NOT_JOINABLE` se a partida estiver `closed`/`cancelled`, `400 MATCH_FULL` se não houver vagas e a partida não exigir aprovação, `400 ALREADY_PARTICIPATING` se já houver participação ativa.
-- `POST /matches/{id}/leave` — cancela a participação do usuário autenticado; `400 NOT_PARTICIPATING` se não houver participação ativa.
+- `POST /matches/{id}/leave` — cancela a participação do usuário autenticado; `400 MATCH_NOT_LEAVABLE` se a partida estiver `closed`/`cancelled` (depois do encerramento, sair permitiria escapar da avaliação), `400 ORGANIZER_CANNOT_LEAVE` se quem chama for o organizador, `400 NOT_PARTICIPATING` se não houver participação ativa.
 - `POST /matches/{id}/participants/{userId}/approve` — organizador confirma uma solicitação `pending`; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `404 PENDING_PARTICIPANT_NOT_FOUND` se não houver solicitação pendente para o usuário, `400 MATCH_FULL` se as vagas já tiverem sido preenchidas.
 - `POST /matches/{id}/close` — organizador encerra a partida manualmente (`status → closed`), pré-requisito para o fluxo de avaliação pós-partida; `403 NOT_MATCH_ORGANIZER` se o autenticado não for o organizador, `400 MATCH_ALREADY_RESOLVED` se a partida já estiver `closed`/`cancelled`.
 
@@ -187,35 +187,81 @@ sem isso, o gate roda e reporta, mas ainda não bloqueia merge de código quebra
 
 ## Deploy
 
-**Hospedagem decidida: [Railway](https://railway.app/).** Motivos: Postgres gerenciado nativo
-(um addon, sem provisionar infraestrutura separada), deploy automático a partir do GitHub
-(mesmo fluxo de PR/branch já usado no CI), variáveis de ambiente via painel (mesmo modelo do
-`pydantic-settings` já usado aqui) e custo compatível com o estágio de MVP. Alternativas
-consideradas: Render (equivalente, mas Postgres é um serviço separado a mais para configurar) e
-Fly.io (mais controle e edge global, mas exige Dockerfile/`flyctl`/volumes — complexidade que
-não se paga nesta etapa).
+**Hospedagem atual (2026-10): API no [Render](https://render.com) (plano free) + Postgres no
+[Neon](https://neon.tech) (plano free).** O trial do Railway expirou em 2026-09; a VPS na Oracle
+Cloud (abaixo) foi preparada como alternativa, mas Render + Neon reproduz o fluxo do Railway
+(deploy automático a partir do GitHub, HTTPS e banco gerenciado) sem precisar administrar uma VM.
+O Postgres gratuito do próprio Render não é usado porque expira em ~30 dias.
 
-**Deploy já em produção** (`squadup-api.up.railway.app`), com auto-deploy do GitHub ativado na
-branch `dev`. Confirmado em 2026-07-28: o deploy do commit que trouxe a Fase 13 (geolocalização e
-notificações push) subiu com sucesso e `alembic upgrade head` aplicou a migration pendente —
-validado via `GET /health` (200) e `GET /matches?lat=...&lng=...&radius_km=...` (200, sem erro de
-schema).
+Trade-offs do plano free: a API **hiberna após ~15 min sem tráfego** e leva cerca de 1 min para
+acordar na requisição seguinte (antes de uma demo, acessar `/health` com antecedência); o compute
+do Neon também suspende quando ocioso — `pool_pre_ping=True` em `app/core/database.py` descarta
+conexões derrubadas por isso.
 
-Passos que descrevem como o primeiro deploy foi configurado (referência para recriar o ambiente,
-não uma ação pendente):
+### Render + Neon (ação manual, feita uma vez)
 
-1. Criar um projeto no Railway a partir deste repositório GitHub (branch `dev` ou `main`,
-   conforme decidido na hora do deploy) e adicionar um addon **PostgreSQL**.
-2. Definir as variáveis de ambiente do serviço da API: `SECRET_KEY` (valor aleatório forte, não
-   o placeholder de dev), `ENVIRONMENT=production`, `CORS_ORIGINS` com a URL real do app
-   publicado (Expo/EAS). `DATABASE_URL` é injetada automaticamente pelo addon de Postgres no
-   formato `postgresql://...` — trocar o prefixo para `postgresql+psycopg://` para usar o
-   driver `psycopg` (já em `requirements.txt`).
-3. O `Procfile` (`alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`) é
-   detectado automaticamente pelo Nixpacks do Railway — a cada deploy, as migrations pendentes
-   são aplicadas antes do servidor subir.
-4. Rodar `python -m app.seed` manualmente (via Railway CLI/shell) apenas se for necessário um
-   banco de produção com dados de exemplo — não faz parte do fluxo automático de deploy.
+1. No Neon, criar um projeto na região **AWS us-east-1** (mesma região do serviço no Render) e
+   copiar a connection string (`postgresql://...?sslmode=require`). Pode colar como veio:
+   `Settings` troca o prefixo `postgres://`/`postgresql://` por `postgresql+psycopg://`
+   automaticamente (o driver instalado é o `psycopg` v3, não o `psycopg2`).
+2. No Render, **New → Blueprint**, apontar para este repositório. O `render.yaml` cria o serviço
+   `squadup-api` (branch `dev`, build `pip install -r requirements.txt`, start com
+   `alembic upgrade head` + `uvicorn`, health check em `/health`) e gera `SECRET_KEY` e
+   `METRICS_TOKEN`; só `DATABASE_URL` precisa ser preenchida (a string do Neon).
+3. Validar `https://<serviço>.onrender.com/health` (200). Push em `dev` dispara deploy automático.
+4. Opcional: popular o banco com dados de exemplo rodando `python -m app.seed` localmente com
+   `DATABASE_URL` apontando para o Neon (o shell do Render não está disponível no plano free).
+
+### Alternativa: VPS na Oracle Cloud
+
+**VPS própria via [Oracle Cloud "Always Free"](https://www.oracle.com/cloud/free/)
+(Ampere A1, arm64).** Preparada após o fim do trial do Railway (2026-09). Motivo: tier gratuito sem
+prazo de validade (diferente do trial do Railway), com recursos generosos (até 4 OCPU/24GB RAM
+"Always Free", sem custo) — em troca de gerenciar a infraestrutura (Postgres, TLS, deploy) que
+antes era responsabilidade do Railway. Empacotado com **Docker Compose** (`api` + `db` Postgres +
+`caddy` como reverse proxy com HTTPS automático via Let's Encrypt), único jeito prático de
+reproduzir "Postgres gerenciado + deploy automático" fora de uma plataforma paga.
+
+Arquivos relevantes: `Dockerfile` (imagem da API, multi-stage, `python:3.12-slim`, compatível
+com arm64), `docker-compose.yml` (`api`/`db`/`caddy`), `Caddyfile` (reverse proxy, lê o hostname
+de `SITE_ADDRESS`), `.env.example` (todas as variáveis, incluindo as só usadas em produção —
+`POSTGRES_PASSWORD`, `SITE_ADDRESS`), `.github/workflows/deploy.yml` (CD via SSH, dispara em
+push para `dev`).
+
+#### Provisionar a VPS (ação manual, feita uma vez)
+
+1. Criar conta na [Oracle Cloud](https://signup.oraclecloud.com/) (cartão de crédito exigido só
+   para verificação de identidade — o tier "Always Free" não cobra).
+2. Criar uma instância **Compute** com shape **VM.Standard.A1.Flex** (Ampere/arm64, Always
+   Free — recomendado: 4 OCPU / 24GB RAM, o máximo gratuito), imagem **Ubuntu** (22.04 ou mais
+   recente), e gerar/baixar o par de chaves SSH na criação. **A capacidade do shape A1 esgota com
+   frequência** ("Out of host capacity") — se acontecer, tentar de novo (outro Availability
+   Domain, ou aguardar e tentar em outro horário) antes de cair para o shape x86 Always Free
+   (`VM.Standard.E2.1.Micro`, só 1GB RAM — apertado para rodar API+Postgres+Caddy juntos).
+3. Abrir as portas **80 e 443** na Security List/NSG da VCN (rede) — sem isso, o tráfego nem
+   chega na VM. **Abrir também no firewall local da VM** (imagens Ubuntu da Oracle vêm com
+   `iptables`/`netfilter-persistent` bloqueando tudo exceto SSH por padrão) — o passo mais comum
+   de ser esquecido nesse provedor especificamente.
+4. Instalar Docker + plugin `docker-compose` na VM (`curl -fsSL https://get.docker.com | sh` +
+   `apt-get install -y docker-compose-plugin`), clonar este repositório, copiar
+   `.env.example` → `.env` e preencher os valores reais.
+5. `docker compose up -d --build` na VM. Validar `GET /health` (200) através de
+   `https://<SITE_ADDRESS>/health`.
+
+#### Deploy contínuo (VPS)
+
+`.github/workflows/deploy.yml` (hoje só com disparo manual, `workflow_dispatch`, já que a
+hospedagem ativa é o Render; restaurar o gatilho `push` em `dev` se voltar para a VPS) conecta
+via SSH na VM e roda
+`git pull && docker compose up -d --build` — precisa de 3 secrets no GitHub (Settings → Secrets
+and variables → Actions): `DEPLOY_HOST` (IP público da VM), `DEPLOY_USER` (usuário SSH, ex.
+`ubuntu`), `DEPLOY_SSH_KEY` (chave privada correspondente à chave pública autorizada na VM).
+Sem esses secrets configurados, o job falha (mas não bloqueia CI/merge — é um workflow
+independente).
+
+Rodar `python -m app.seed` manualmente (via `docker compose exec api python -m app.seed`) apenas
+se for necessário um banco de produção com dados de exemplo — não faz parte do fluxo automático
+de deploy.
 
 ## Modelo de dados
 

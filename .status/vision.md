@@ -138,7 +138,8 @@ teste ponta a ponta pelo usuário.
 
 **Atualização (2026-07-30, sessão 31, continuação — Fase 15):** a pedido do usuário, as dívidas
 técnicas/evolução de escopo registradas em `queue.md` (T2–T6) foram implementadas de uma vez,
-numa branch própria (`feature/fase-15-dividas-tecnicas`, ainda não mergeada em `dev`). Duas
+numa branch própria (`feature/fase-15-dividas-tecnicas`, **mergeada em `dev` via PR #54,
+confirmado sessão 32**). Duas
 alterações mudam declarações desta seção: **chat em tempo real via WebSocket** e **upload real
 de avatar** (via storage S3-compatible genérico, `boto3`) deixam de ser "fora de escopo" — ver
 `roadmap.md` §20 para o detalhe técnico completo. Também entraram nesta fase, sem relação com o

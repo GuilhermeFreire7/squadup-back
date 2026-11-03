@@ -130,10 +130,24 @@ def list_matches(
 
 
 def create_match(session: Session, payload: MatchCreate, organizer: User) -> MatchRead:
+    """Cria a partida com o organizador já como participante confirmado.
+
+    O organizador ocupa uma vaga (mesma convenção do seed). Sem isso, ele não teria acesso aos
+    fluxos que dependem de participação confirmada na tela de detalhes (chat, encerramento) e
+    ficaria fora da reputação, já que avaliar exige que os dois lados estejam confirmados.
+    """
     match = Match(**payload.model_dump(), organizer_id=organizer.id)
     session.add(match)
+    session.add(
+        Participant(
+            match_id=match.id,
+            user_id=organizer.id,
+            status=ParticipationStatus.CONFIRMED,
+        )
+    )
     session.commit()
     session.refresh(match)
+    _sync_match_status(session, match)
 
     session.add(
         Message(
@@ -227,6 +241,26 @@ def join_match(session: Session, match_id: str, user: User) -> MatchRead:
 
 def leave_match(session: Session, match_id: str, user: User) -> MatchRead:
     match = _get_match_or_404(session, match_id)
+
+    # Depois do encerramento, a participação confirmada é o que habilita a avaliação: sair nesse
+    # ponto permitiria escapar de ser avaliado. Partida cancelada não tem mais vaga a liberar.
+    if match.status in (MatchStatus.CLOSED, MatchStatus.CANCELLED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "MATCH_NOT_LEAVABLE",
+                "message": "Não é possível sair de uma partida encerrada ou cancelada.",
+            },
+        )
+
+    if match.organizer_id == user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "ORGANIZER_CANNOT_LEAVE",
+                "message": "O organizador não pode sair da própria partida.",
+            },
+        )
 
     participant = session.get(Participant, (match_id, user.id))
     if participant is None or participant.status == ParticipationStatus.CANCELLED:
