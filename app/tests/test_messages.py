@@ -268,6 +268,62 @@ def test_list_messages_respects_pagination(db_client: tuple[TestClient, Session]
     assert body[0]["text"] == "dois"
 
 
+def _match_with_messages(
+    client: TestClient, session: Session, texts: list[str]
+) -> tuple[str, dict[str, str]]:
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/users/me", headers=headers).json()
+    organizer = session.get(User, me["id"])
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer)
+    for text in texts:
+        client.post(f"/matches/{match.id}/messages", json={"text": text}, headers=headers)
+    return match.id, headers
+
+
+def test_list_messages_desc_returns_most_recent_first(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    match_id, headers = _match_with_messages(client, session, ["um", "dois", "tres"])
+
+    response = client.get(
+        f"/matches/{match_id}/messages", params={"order": "desc"}, headers=headers
+    )
+
+    assert response.status_code == 200
+    assert [message["text"] for message in response.json()] == ["tres", "dois", "um"]
+
+
+def test_list_messages_desc_pages_back_from_latest(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    texts = [f"msg-{i}" for i in range(5)]
+    match_id, headers = _match_with_messages(client, session, texts)
+    url = f"/matches/{match_id}/messages"
+
+    first = client.get(url, params={"order": "desc", "limit": 2}, headers=headers).json()
+    second = client.get(
+        url, params={"order": "desc", "limit": 2, "skip": 2}, headers=headers
+    ).json()
+
+    assert [m["text"] for m in first] == ["msg-4", "msg-3"]
+    assert [m["text"] for m in second] == ["msg-2", "msg-1"]
+
+
+def test_list_messages_rejects_invalid_order(db_client: tuple[TestClient, Session]) -> None:
+    client, session = db_client
+    match_id, headers = _match_with_messages(client, session, [])
+
+    response = client.get(
+        f"/matches/{match_id}/messages", params={"order": "random"}, headers=headers
+    )
+
+    assert response.status_code == 422
+
+
 def test_list_messages_rejects_non_participant(db_client: tuple[TestClient, Session]) -> None:
     client, session = db_client
     organizer = _make_user(session, "u1", "Alice")

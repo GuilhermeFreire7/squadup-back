@@ -80,7 +80,7 @@ API1/API3, minimização da LGPD). `GET /matches` continua público. O app só c
 telas pós-login, então a build atual segue compatível. Relatório em
 `../squadup-front/.status/revisao-geral-2026-11.md`._
 
-_**Revisão geral 2026-11, item A4 (2026-11-03) — PR aberto, aguardando revisão:** branch
+_**Revisão geral 2026-11, item A4 (2026-11-03) — mergeado em `dev` (PR #67):** branch
 `fix/rate-limit-auth`. Limite de tentativas em memória (`app/core/rate_limit.py`):
 - login: 20 tentativas/min por IP e 10 falhas/15 min por e-mail;
 - cadastro: 10/h por IP;
@@ -90,6 +90,13 @@ O IP vem do `True-Client-IP` (Cloudflare na frente do Render), não do `X-Forwar
 forjável. **Verificar depois do deploy:** nos logs do Render, o evento `rate_limit_key` deve
 mostrar `ip_source: "header"`. Se aparecer `"connection"`, o header não chega e o limite está
 agrupando todos os usuários pelo IP do proxy._
+
+_**Revisão geral 2026-11, item A2, parte do back (2026-11-03) — PR aberto, aguardando
+revisão:** branch `feat/mensagens-ordem-desc`. `GET /matches/{id}/messages` ganha `order=desc`
+(mais recentes primeiro, desempate por `id`). O padrão continua `asc`, então a build atual não
+muda. O app paginava sempre a partir das mais antigas (`skip=0`, `limit` crescente até 100) e,
+com mais de 30 mensagens, as novas não apareciam. A parte do front depende deste PR estar em
+produção._
 
 ## Bloqueios
 

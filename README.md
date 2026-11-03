@@ -120,7 +120,7 @@ O `status` da partida (`open`/`full`) é recalculado automaticamente a cada join
 
 ## Mensagens (chat da partida)
 
-- `GET /matches/{id}/messages` — histórico de mensagens em ordem cronológica, paginado via `skip`/`limit` (padrão `limit=50`, máximo `100`).
+- `GET /matches/{id}/messages` — histórico de mensagens paginado via `skip`/`limit` (padrão `limit=50`, máximo `100`). Por padrão vem em ordem cronológica (`order=asc`). Com `order=desc`, as mais recentes vêm primeiro: é o modo que o app usa, para que a primeira página traga as últimas mensagens e as páginas seguintes, as mais antigas.
 - `POST /matches/{id}/messages` — envia uma nova mensagem (`text`, não vazio); `created_at` é gerado pelo servidor.
 
 Ambos os endpoints exigem `Authorization: Bearer <token>` e são restritos ao organizador da partida ou a participantes com `Participant.status == confirmed` — `403 NOT_MATCH_PARTICIPANT` caso contrário, `404 MATCH_NOT_FOUND` se a partida não existir.

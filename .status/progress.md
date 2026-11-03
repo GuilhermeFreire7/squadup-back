@@ -605,3 +605,21 @@ instância free com pouca CPU, derrubar o serviço só com tentativas (OWASP API
 
 Um fixture `autouse` no `conftest.py` zera os limitadores entre testes. Resultado: 189 testes,
 98,88% de cobertura (`rate_limit.py` e o router de auth em 100%); `ruff`/`black`/`mypy` limpos.
+
+## Revisão geral 2026-11 — A2 (back): mensagens das mais recentes para as mais antigas (2026-11-03)
+
+Origem: item A2 de `../squadup-front/.status/revisao-geral-2026-11.md`. Branch
+`feat/mensagens-ordem-desc`.
+
+**Problema:** `GET /matches/{id}/messages` só ordenava em ordem crescente e não expõe o total de
+mensagens. O app (`useMessages`) buscava sempre a partir de `skip=0`, aumentando o `limit` até o
+teto de 100. Com mais de 30 mensagens, a tela mostrava as 30 mais antigas e as novas não
+apareciam; com mais de 100, nunca.
+
+**Mudança:** parâmetro opcional `order` (`asc` | `desc`, padrão `asc`, então nada muda para a
+build atual). Com `desc`, a página 0 traz as últimas mensagens e `skip` avança para as mais
+antigas. `id` desempata mensagens com o mesmo `created_at`, para as páginas não repetirem nem
+pularem itens.
+
+**Testes:** 3 novos (`desc` mais recentes primeiro, paginação de trás para frente, `order`
+inválido → 422). Suíte com 192 testes, 98,89% de cobertura; `ruff`/`black`/`mypy` limpos.
