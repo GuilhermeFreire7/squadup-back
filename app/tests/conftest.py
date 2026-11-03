@@ -6,8 +6,18 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from app.core.database import get_session
+from app.core.rate_limit import ALL_LIMITERS
 from app.main import app
 from app.models import Match, Message, Participant, Rating, Report, User  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters() -> Generator[None, None, None]:
+    """Os limitadores guardam estado no processo: sem isso, um teste herdaria as tentativas do
+    anterior (todas vêm do mesmo IP do TestClient)."""
+    for limiter in ALL_LIMITERS:
+        limiter.reset()
+    yield
 
 
 @pytest.fixture

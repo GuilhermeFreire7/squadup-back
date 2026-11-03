@@ -61,6 +61,22 @@ JWT (`PyJWT`, HS256) com senha hasheada via `passlib[bcrypt]`:
 - `POST /auth/logout` — revoga um `refresh_token`, encerrando a sessão correspondente; `204` em caso de sucesso, `401 INVALID_REFRESH_TOKEN` se o token já não for válido. Se `device_id` for informado (mesmo valor enviado em `POST /users/me/push-token`), revoga também só o push token daquele dispositivo, sem afetar outras sessões ativas do mesmo usuário.
 - `POST /auth/logout-all` — revoga **todos** os refresh tokens ativos do usuário autenticado (`Authorization: Bearer <token>`), encerrando todas as sessões de uma vez (ex.: suspeita de dispositivo comprometido); `204` em caso de sucesso.
 
+**Limite de tentativas** (`app/core/rate_limit.py`): `POST /auth/login` aceita 20 tentativas por
+minuto por IP e, por e-mail, 10 falhas a cada 15 minutos (vindas de qualquer IP; login bem-sucedido
+não conta). `POST /auth/register` aceita 10 cadastros por hora por IP. Acima disso, a resposta é
+`429 RATE_LIMITED` com o header `Retry-After`. O e-mail bloqueado é recusado antes do bcrypt, sem
+gastar CPU. Os limites são folgados porque, numa demonstração, várias pessoas na mesma rede saem
+pelo mesmo IP.
+
+- **IP do cliente:** vem do header `CLIENT_IP_HEADER` (padrão `True-Client-IP`, preenchido e
+  sobrescrito pelo Cloudflare que fica na frente do Render). O `X-Forwarded-For` não é usado
+  porque o proxy do Render anexa ao valor do cliente, o que permite forjá-lo. Sem o header, usa o
+  IP da conexão. Cada checagem gera o log `rate_limit_key` com `ip_source` (`header` ou
+  `connection`, nunca o IP): em produção deve aparecer sempre `header`.
+- **Estado em memória:** o deploy atual tem um único processo. Com várias réplicas, cada uma teria
+  seu próprio contador, e o estado precisaria ir para um armazenamento compartilhado (ex.: Redis).
+- `RATE_LIMIT_ENABLED=false` desliga o limite.
+
 A dependency `app.core.dependencies.get_current_user` decodifica o JWT e carrega o `User`; routers futuros que exigirem autenticação devem reutilizá-la via `Depends`.
 
 O `access_token` tem vida curta (`access_token_expire_minutes`, padrão 24h); o `refresh_token` é um valor aleatório opaco (`secrets.token_urlsafe`), armazenado apenas como hash SHA-256 na tabela `refresh_tokens` (`token_hash`), com vida longa (`refresh_token_expire_days`, padrão 30 dias) e rotação a cada uso — o token anterior é sempre marcado como `revoked` ao ser trocado por um novo par, então reutilizar um refresh token já trocado ou revogado retorna `401 INVALID_REFRESH_TOKEN`.

@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # `X-Metrics-Token` correspondente — em dev/CI, sem token configurado, o endpoint fica aberto.
     metrics_token: str | None = None
 
+    # Limite de tentativas em login/cadastro (app/core/rate_limit.py). `client_ip_header` é o
+    # header confiável com o IP real do cliente: no Render (atrás do Cloudflare), `True-Client-IP`.
+    # Fora de um proxy que sobrescreva esse header, defina vazio para usar o IP da conexão (senão
+    # o cliente poderia forjá-lo e escapar do limite).
+    rate_limit_enabled: bool = True
+    client_ip_header: str | None = "True-Client-IP"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

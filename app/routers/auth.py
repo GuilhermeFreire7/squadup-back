@@ -1,8 +1,16 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
+from app.core.config import get_settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import (
+    RATE_LIMITED_MESSAGE,
+    limit_login_by_ip,
+    limit_register_by_ip,
+    login_failure_limiter,
+    rate_limited_error,
+)
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
@@ -24,15 +32,20 @@ from app.services.push_token_service import revoke_push_token_by_device
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+RATE_LIMIT_ERROR = (429, "RATE_LIMITED", RATE_LIMITED_MESSAGE)
+
 
 @router.post(
     "/register",
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
     summary="Cadastrar novo usuário",
-    description="Cria um novo usuário com senha criptografada.",
+    description="Cria um novo usuário com senha criptografada. Limitado a 10 cadastros por hora "
+    "por IP.",
+    dependencies=[Depends(limit_register_by_ip)],
     responses=error_responses(
         (409, "EMAIL_ALREADY_REGISTERED", "Este e-mail já está cadastrado."),
+        RATE_LIMIT_ERROR,
     ),
 )
 def register(payload: RegisterRequest, session: Session = Depends(get_session)) -> User:
@@ -43,13 +56,29 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)) 
     "/login",
     response_model=TokenResponse,
     summary="Autenticar usuário",
-    description="Valida e-mail e senha, retornando um token JWT de acesso.",
+    description="Valida e-mail e senha, retornando um token JWT de acesso. Limitado a 20 "
+    "tentativas por minuto por IP e a 10 falhas a cada 15 minutos por e-mail.",
+    dependencies=[Depends(limit_login_by_ip)],
     responses=error_responses(
         (401, "INVALID_CREDENTIALS", "E-mail ou senha inválidos."),
+        RATE_LIMIT_ERROR,
     ),
 )
 def login(payload: LoginRequest, session: Session = Depends(get_session)) -> TokenResponse:
-    return authenticate_user(session, payload)
+    settings = get_settings()
+    email_key = payload.email.lower()
+    if settings.rate_limit_enabled:
+        # Barrado antes do bcrypt: tentativas contra uma conta já bloqueada não gastam CPU.
+        retry_after = login_failure_limiter.retry_after(email_key)
+        if retry_after is not None:
+            raise rate_limited_error(retry_after)
+
+    try:
+        return authenticate_user(session, payload)
+    except HTTPException as exc:
+        if settings.rate_limit_enabled and exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            login_failure_limiter.record(email_key)
+        raise
 
 
 @router.get(

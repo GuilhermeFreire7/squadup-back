@@ -563,3 +563,45 @@ todos os organizadores e participantes sem conta (OWASP API1/API3:2023, minimiza
 **Testes:** 4 novos (`401` sem token nas três rotas e `GET /matches` público) e 5 ajustados para
 mandar token. Depois do rebase sobre o A3 (#65, já mergeado), a suíte tem 174 testes, 98,80% de
 cobertura; `ruff`/`black`/`mypy` limpos.
+
+## Revisão geral 2026-11 — A4: limite de tentativas em login e cadastro (2026-11-03)
+
+Origem: item A4 de `../squadup-front/.status/revisao-geral-2026-11.md`. Branch
+`fix/rate-limit-auth`.
+
+**Problema:** `POST /auth/login` e `POST /auth/register` não tinham limite. Isso permitia força
+bruta de senha (a conta do autor em produção é `admin`) e, como cada login roda bcrypt numa
+instância free com pouca CPU, derrubar o serviço só com tentativas (OWASP API4:2023).
+
+**Decisões:**
+
+- **Limitador próprio, sem `slowapi`:** janela deslizante em memória (`RateLimiter`), aplicada
+  como dependency do FastAPI e com `threading.Lock`, porque as rotas síncronas rodam no
+  threadpool. Assim não entra dependência nova perto da defesa e o erro sai no formato padrão
+  `{code, message}`. O estado em memória basta porque o Render roda um único processo.
+- **Limites:**
+  - login: 20 tentativas/min por IP, mais 10 falhas/15 min por e-mail, de qualquer IP (protege
+    cada conta de força bruta distribuída; login bem-sucedido não conta);
+  - cadastro: 10/h por IP.
+
+  São folgados porque, na defesa, todos na mesma rede saem pelo mesmo IP. O e-mail bloqueado é
+  recusado antes do bcrypt.
+- **IP do cliente:** relatos da comunidade (não há documentação oficial do Render) indicam que o
+  proxy do Render anexa ao `X-Forwarded-For` recebido em vez de substituí-lo, o que o torna
+  forjável. O IP real vem em `True-Client-IP`, preenchido e sobrescrito pelo Cloudflare na frente
+  do Render. Por isso `CLIENT_IP_HEADER` tem padrão `True-Client-IP`, com fallback para o IP da
+  conexão.
+- **Verificação em produção:** o evento de log `rate_limit_key` registra só `ip_source`
+  (`header`/`connection`), sem o IP, que é dado pessoal. Em produção deve ser sempre `header`.
+- **Interação com o front:** o app já mostra a `message` de qualquer `ApiError` no login e no
+  cadastro, então o 429 aparece sem mudança no app.
+
+**Testes:** 15 novos em `app/tests/test_rate_limit.py`:
+
+- unidade: janela, `retry_after`, poda de chaves, origem do IP;
+- rotas: limite por IP; IPs diferentes com contadores separados; `X-Forwarded-For` forjado não
+  escapa; conta bloqueada mesmo com senha certa vinda de outro IP; logins bem-sucedidos não
+  contam; limite de cadastro; flag de desligar.
+
+Um fixture `autouse` no `conftest.py` zera os limitadores entre testes. Resultado: 189 testes,
+98,88% de cobertura (`rate_limit.py` e o router de auth em 100%); `ruff`/`black`/`mypy` limpos.

@@ -72,13 +72,24 @@ não repetido aqui. Duas ações residuais seguem como tarefas abertas: **T7** (
 storage) e **T8** (branch protection do GitHub), ambas abaixo. `main` ainda não recebeu esse
 merge — ver "Checkpointer" para o estado exato._
 
-_**Revisão geral 2026-11, item A1 (2026-11-03) — PR aberto, aguardando revisão:** branch
+_**Revisão geral 2026-11, item A1 (2026-11-03) — mergeado em `dev` (PR #66):** branch
 `fix/auth-leitura-perfis`. `GET /users/{id}`, `GET /users/{id}/ratings` e `GET /matches/{id}`
 passam a exigir autenticação. Antes, qualquer pessoa na internet lia nome, idade, bairro, bio e
 foto dos participantes, enumeráveis a partir dos `organizer_id` de `GET /matches` (OWASP
 API1/API3, minimização da LGPD). `GET /matches` continua público. O app só chama as três rotas em
 telas pós-login, então a build atual segue compatível. Relatório em
 `../squadup-front/.status/revisao-geral-2026-11.md`._
+
+_**Revisão geral 2026-11, item A4 (2026-11-03) — PR aberto, aguardando revisão:** branch
+`fix/rate-limit-auth`. Limite de tentativas em memória (`app/core/rate_limit.py`):
+- login: 20 tentativas/min por IP e 10 falhas/15 min por e-mail;
+- cadastro: 10/h por IP;
+- acima disso, `429 RATE_LIMITED` com `Retry-After`.
+
+O IP vem do `True-Client-IP` (Cloudflare na frente do Render), não do `X-Forwarded-For`, que é
+forjável. **Verificar depois do deploy:** nos logs do Render, o evento `rate_limit_key` deve
+mostrar `ip_source: "header"`. Se aparecer `"connection"`, o header não chega e o limite está
+agrupando todos os usuários pelo IP do proxy._
 
 ## Bloqueios
 
