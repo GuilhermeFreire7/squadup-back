@@ -28,7 +28,8 @@ router = APIRouter(prefix="/matches", tags=["matches"])
     response_model=MatchRead,
     status_code=status.HTTP_201_CREATED,
     summary="Criar partida",
-    description="Cria uma nova partida com o usuário autenticado como organizador.",
+    description="Cria uma nova partida com o usuário autenticado como organizador. O "
+    "organizador entra automaticamente como participante confirmado e ocupa uma vaga.",
     responses=error_responses(*AUTH_ERRORS),
 )
 def create_new_match(
@@ -114,10 +115,17 @@ def join_match_route(
     "/{match_id}/leave",
     response_model=MatchRead,
     summary="Cancelar participação",
-    description="Cancela a participação do usuário autenticado na partida.",
+    description="Cancela a participação do usuário autenticado na partida. Não é permitido "
+    "em partida encerrada ou cancelada, nem para o organizador.",
     responses=error_responses(
         *AUTH_ERRORS,
         (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
+        (
+            400,
+            "MATCH_NOT_LEAVABLE",
+            "Não é possível sair de uma partida encerrada ou cancelada.",
+        ),
+        (400, "ORGANIZER_CANNOT_LEAVE", "O organizador não pode sair da própria partida."),
         (400, "NOT_PARTICIPATING", "Você não participa desta partida."),
     ),
 )
