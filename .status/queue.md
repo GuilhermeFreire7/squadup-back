@@ -4,6 +4,13 @@
 
 ## Em andamento
 
+_**Revisão geral 2026-11, item A5 (2026-11-11) — PR aberto:** branch `feat/script-datas-demo`.
+Script `app/demo_dates.py` desloca, em semanas inteiras, as partidas abertas, lotadas e canceladas
+para que nenhuma fique no passado na defesa (o seed de produção vai de 22/11 a 08/12). Não há
+credencial do Neon nesta máquina, então quem roda é o autor, com a `DATABASE_URL` de produção:
+`python -m app.demo_dates --start 2026-12-19` (simulação) e depois `--apply`. Com essa data, as
+partidas abertas vão para 22/12 a 05/01._
+
 _**Revisão geral 2026-11, item A3 (2026-11-03) — mergeado em `dev` (PR #65):** branch
 `fix/regras-organizador-partida`. O organizador passa a entrar como `Participant` `confirmed` ao
 criar a partida (ocupa vaga, mesma convenção do seed). Antes, quem criava uma partida pelo app via

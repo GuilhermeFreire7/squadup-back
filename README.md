@@ -312,6 +312,23 @@ python -m app.seed
 
 Popula o banco local com os mesmos dados de exemplo do protótipo do front (`../squadup-app/src/mocks/*.ts`): 6 usuários + 1 usuário de sistema (`system`, autor das mensagens automáticas do chat), 13 partidas, participações, mensagens, avaliações e denúncias. Idempotente — não faz nada se `user-1` já existir no banco. Senha de todos os usuários de seed: `changeme123` (placeholder de desenvolvimento, nunca usar em produção).
 
+### Datas da demonstração
+
+As partidas abertas, lotadas e canceladas do seed têm datas fixas e, com o tempo, ficariam no
+passado ainda "abertas". `app/demo_dates.py` desloca todas juntas, em semanas inteiras (vários
+títulos citam o dia da semana), para que a mais cedo caia na data informada ou até 6 dias depois.
+Partidas encerradas e o histórico não mudam. Roda em simulação por padrão; só grava com `--apply`,
+e rodar de novo com a mesma data não desloca outra vez.
+
+```bash
+# DATABASE_URL apontando para o banco a ajustar (ex.: a connection string do Neon)
+python -m app.demo_dates --start 2026-12-19            # simulação: mostra o que mudaria
+python -m app.demo_dates --start 2026-12-19 --apply    # grava
+```
+
+No Windows, use `PYTHONIOENCODING=utf-8` (ou `$env:PYTHONIOENCODING="utf-8"` no PowerShell) para
+os acentos dos títulos saírem certos no console.
+
 ## Estrutura de pastas
 
 ```
