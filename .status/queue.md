@@ -98,12 +98,12 @@ muda. O app paginava sempre a partir das mais antigas (`skip=0`, `limit` crescen
 com mais de 30 mensagens, as novas não apareciam. A parte do front depende deste PR estar em
 produção._
 
-_**Revisão geral 2026-11, item A5 (2026-11-11) — PR aberto:** branch `feat/script-datas-demo`.
+_**Revisão geral 2026-11, item A5 (2026-11-11) — aplicado em produção; PR #78 aberto:** branch `feat/script-datas-demo`.
 Script `app/demo_dates.py` desloca, em semanas inteiras, as partidas abertas, lotadas e canceladas
 para que nenhuma fique no passado na defesa (o seed de produção vai de 22/11 a 08/12). Não há
 credencial do Neon nesta máquina, então quem roda é o autor, com a `DATABASE_URL` de produção:
 `python -m app.demo_dates --start 2026-12-19` (simulação) e depois `--apply`. Com essa data, as
-partidas abertas vão para 22/12 a 05/01._
+partidas abertas vão para 22/12 a 05/01. **Aplicado em produção em 2026-11-11** (URL do Neon lida do `.env` local do autor, sem exibir): 12 partidas deslocadas 28 dias (20/12 a 05/01), `match-13` (encerrada) intacta, conferido por `GET /matches`; segunda execução não muda nada._
 
 ## Bloqueios
 
