@@ -4,6 +4,12 @@
 
 ## Em andamento
 
+_**Revisão geral 2026-11, item A7 operacional (2026-11-11) — PR aberto:** branch
+`chore/keep-alive-render`. Workflow agendado (`keep-alive.yml`) chama `GET /health` a cada 10 min
+para a API do Render não hibernar, em vez de um monitor externo (UptimeRobot), que exigiria criar
+conta num serviço terceiro. Depois do merge, conferir em Actions → "Keep alive (Render)" que os
+runs agendados estão passando._
+
 _**Revisão geral 2026-11, item A3 (2026-11-03) — mergeado em `dev` (PR #65):** branch
 `fix/regras-organizador-partida`. O organizador passa a entrar como `Participant` `confirmed` ao
 criar a partida (ocupa vaga, mesma convenção do seed). Antes, quem criava uma partida pelo app via

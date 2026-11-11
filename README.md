@@ -214,6 +214,14 @@ acordar na requisição seguinte (antes de uma demo, acessar `/health` com antec
 do Neon também suspende quando ocioso — `pool_pre_ping=True` em `app/core/database.py` descarta
 conexões derrubadas por isso.
 
+**Keep-alive:** o workflow `.github/workflows/keep-alive.yml` chama `GET /health` a cada 10 min
+(agendamento do GitHub Actions, gratuito em repositório público), o que mantém a API acordada.
+Um serviço ligado o mês todo cabe nas 750 h/mês do plano free. `/health` não consulta o banco, então o
+Neon continua suspendendo quando ocioso. O agendamento do GitHub pode atrasar alguns minutos em
+horários de pico, então um cold start ocasional ainda é possível. O GitHub também desativa
+agendamentos depois de 60 dias sem atividade no repositório; se isso acontecer, reative em
+Actions → "Keep alive (Render)".
+
 ### Render + Neon (ação manual, feita uma vez)
 
 1. No Neon, criar um projeto na região **AWS us-east-1** (mesma região do serviço no Render) e

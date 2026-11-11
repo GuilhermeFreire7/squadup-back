@@ -1,0 +1,34 @@
+name: Keep alive (Render)
+
+# O plano free do Render suspende a API após ~15 min sem requisições, e a primeira resposta
+# seguinte leva ~40 s. Este workflow chama GET /health a cada 10 min para manter o serviço
+# acordado (o plano free tem 750 h/mês, o bastante para um serviço ligado o mês todo).
+# /health não consulta o banco, então não mantém o Neon acordado nem gasta o compute dele.
+#
+# Agendamentos do GitHub Actions são "best effort": em horários de pico podem atrasar alguns
+# minutos, então um cold start ocasional ainda é possível. O aviso de "servidor iniciando" do
+# app cobre esse caso. O GitHub desativa agendamentos depois de 60 dias sem atividade no
+# repositório: se isso acontecer, reative em Actions → Keep alive (Render).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: GET /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping
+        env:
+          HEALTH_URL: https://squadup-api-yu40.onrender.com/health
+        run: |
+          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 "$HEALTH_URL"
+          echo
