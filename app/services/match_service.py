@@ -250,7 +250,12 @@ def _sync_match_status(session: Session, match: Match) -> None:
         session.refresh(match)
 
 
-def join_match(session: Session, match_id: str, user: User) -> MatchRead:
+def join_match(
+    session: Session,
+    match_id: str,
+    user: User,
+    background_tasks: BackgroundTasks | None = None,
+) -> MatchRead:
     match = _get_match_or_404(session, match_id)
 
     if match.status in (MatchStatus.CLOSED, MatchStatus.CANCELLED):
@@ -291,7 +296,32 @@ def join_match(session: Session, match_id: str, user: User) -> MatchRead:
     session.commit()
 
     _sync_match_status(session, match)
+
+    if background_tasks is not None:
+        _notify_organizer_of_entry(session, match, user, new_status, background_tasks)
+
     return build_match_read(session, match)
+
+
+def _notify_organizer_of_entry(
+    session: Session,
+    match: Match,
+    user: User,
+    new_status: ParticipationStatus,
+    background_tasks: BackgroundTasks,
+) -> None:
+    """Avisa o organizador de um pedido de entrada (precisa da aprovação dele) ou de uma entrada
+    direta. Sem isso, ele só descobriria abrindo a partida."""
+    tokens = get_push_tokens_for_users(session, [match.organizer_id])
+    if new_status == ParticipationStatus.PENDING:
+        title = "Nova solicitação"
+        body = f'{user.name} pediu para entrar em "{match.title}".'
+        event = "join_request"
+    else:
+        title = "Novo participante"
+        body = f'{user.name} entrou em "{match.title}".'
+        event = "participant_joined"
+    background_tasks.add_task(send_push, tokens, title, body, {"type": event, "matchId": match.id})
 
 
 def leave_match(session: Session, match_id: str, user: User) -> MatchRead:
