@@ -14,6 +14,7 @@ from app.models.enums import ExperienceLevel, MatchStatus, ParticipationStatus, 
 from app.models.match import Match
 from app.models.participant import Participant
 from app.models.user import User
+from app.tests.push_helpers import record_push
 
 
 def _register_and_login(client: TestClient, email: str = "organizer@example.com") -> str:
@@ -377,7 +378,7 @@ def test_send_message_sends_push_to_confirmed_participants_excluding_sender(
     sent_tokens: list[str] = []
     monkeypatch.setattr(
         "app.services.notification_service.httpx.post",
-        lambda url, json, timeout: sent_tokens.extend(m["to"] for m in json),
+        lambda url, json, timeout: record_push(sent_tokens, json),
     )
 
     response = client.post(

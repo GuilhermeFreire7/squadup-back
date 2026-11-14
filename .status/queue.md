@@ -4,6 +4,16 @@
 
 ## Em andamento
 
+_**Push para o organizador na entrada (2026-11-14) — PR aberto:** branch
+`feat/push-organizador-entrada`. No teste com dois aparelhos, o organizador não ficava sabendo do
+pedido de participação. `POST /matches/{id}/join` agora avisa o organizador por push: "Nova
+solicitação" (`type: join_request`) quando a partida exige aprovação, "Novo participante"
+(`type: participant_joined`) na entrada direta. O mesmo teste revelou que **nenhum push chegava**:
+`push_tokens` em produção tem 0 linhas, porque o APK não tem as credenciais do FCM
+(`google-services.json` e chave FCM v1 no EAS) e o app engole o erro do token. Como a Expo responde
+200 mesmo quando recusa um envio, `send_push` passa a registrar no log os códigos de erro dos
+tickets (sem os tokens). As credenciais do FCM são configuradas no front (ver `queue.md` de lá)._
+
 _**Partidas passadas fora da listagem (2026-11-14) — PR aberto:** branch
 `fix/ocultar-partidas-passadas`. Com a ordenação por data (#79), partidas `open`/`full` com data
 passada, que ninguém encerrou (por exemplo as de teste no aparelho), iriam para o topo da Home.
