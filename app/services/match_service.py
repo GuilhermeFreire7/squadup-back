@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime, timedelta, timezone
 
 from fastapi import BackgroundTasks, HTTPException, status
 from sqlmodel import Session, func, select
@@ -17,6 +17,43 @@ from app.services.user_service import build_public_profile
 MATCH_CREATED_SYSTEM_MESSAGE = "Partida criada. Bem-vindos!"
 DEFAULT_SEARCH_RADIUS_KM = 20.0
 FINISHED_STATUSES = (MatchStatus.CLOSED, MatchStatus.CANCELLED)
+# Datas e horários das partidas são locais (Brasil). Brasília não tem horário de verão desde
+# 2019, então um deslocamento fixo basta e dispensa a base de fusos (tzdata) no Windows.
+APP_TIMEZONE = timezone(timedelta(hours=-3), "BRT")
+
+
+def local_today(now: datetime | None = None) -> date:
+    """Data de hoje no fuso das partidas (o servidor roda em UTC)."""
+    return (now or datetime.now(UTC)).astimezone(APP_TIMEZONE).date()
+
+
+def _is_stale(match: Match, today: date) -> bool:
+    """Partida ainda aberta ou lotada cuja data já passou (ninguém a encerrou)."""
+    return match.status not in FINISHED_STATUSES and match.date < today
+
+
+def _hide_stale_matches(
+    session: Session, matches: list[Match], viewer_id: str | None
+) -> list[Match]:
+    """Tira da listagem as partidas ativas com data passada.
+
+    Elas não servem para quem procura um jogo, mas continuam visíveis para o organizador (que
+    ainda precisa encerrá-las) e para os participantes (que vão avaliar depois): o app não tem
+    outra tela que leve a elas.
+    """
+    today = local_today()
+    if not any(_is_stale(match, today) for match in matches):
+        return matches
+    own_ids: set[str] = set()
+    if viewer_id is not None:
+        own_ids = set(
+            session.exec(select(Participant.match_id).where(Participant.user_id == viewer_id)).all()
+        )
+    return [
+        match
+        for match in matches
+        if not _is_stale(match, today) or match.organizer_id == viewer_id or match.id in own_ids
+    ]
 
 
 def _listing_sort_key(match: Match) -> tuple[int, int, int]:
@@ -111,6 +148,7 @@ def list_matches(
     lat: float | None = None,
     lng: float | None = None,
     radius_km: float = DEFAULT_SEARCH_RADIUS_KM,
+    viewer_id: str | None = None,
 ) -> list[MatchRead]:
     query = select(Match)
     if sport is not None:
@@ -123,6 +161,7 @@ def list_matches(
         query = query.where(Match.level == level)
 
     matches = sorted(session.exec(query).all(), key=_listing_sort_key)
+    matches = _hide_stale_matches(session, matches, viewer_id)
 
     # Filtro/ordenação por distância só entra em jogo quando lat/lng são informados juntos
     # (radius_km sozinho não tem efeito).

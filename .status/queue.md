@@ -4,6 +4,20 @@
 
 ## Em andamento
 
+_**Partidas passadas fora da listagem (2026-11-14) — PR aberto:** branch
+`fix/ocultar-partidas-passadas`. Com a ordenação por data (#79), partidas `open`/`full` com data
+passada, que ninguém encerrou (por exemplo as de teste no aparelho), iriam para o topo da Home.
+Agora `GET /matches` as omite, com a data de hoje no fuso de Brasília (UTC-3 fixo). As exceções
+são o organizador e os participantes, identificados pelo token quando ele vem (nova dependência
+`get_optional_current_user`; a rota continua pública e token inválido = anônimo), porque o app
+não tem a tela "Minhas partidas" e eles ainda precisam encerrar e avaliar. Só back, sem build.
+**Dados de produção ajustados no mesmo dia (autorizado pelo autor), sem mudar títulos:** as datas
+passaram a bater com o dia da semana do título, e nenhuma partida fica em 24/12 ou 25/12. `match-1`
+23/12→20/12 (domingo), `match-7` 25/12→21/12, `match-3` 24/12→22/12, `match-4` 26/12→23/12
+(quarta), `match-5` 29/12→26/12 (sábado), `match-8` 27/12→07/01 (quinta), `match-13` (encerrada,
+"de maio") 09/10→31/05. Rodar `app.demo_dates` de novo continua seguro, porque ele desloca em
+semanas inteiras e preserva o dia da semana._
+
 _**Ordenação da listagem de partidas (2026-11-14) — PR aberto:** branch
 `fix/ordenacao-partidas`. `GET /matches` não tinha `ORDER BY`, então o Postgres devolvia as
 linhas na ordem física: uma partida recém-criada (ou atualizada, como no ajuste de datas da demo)
