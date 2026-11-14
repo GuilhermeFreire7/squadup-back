@@ -17,6 +17,7 @@ from app.models.participant import Participant
 from app.models.user import User
 from app.services import match_service
 from app.services.match_service import local_today
+from app.tests.push_helpers import record_push
 
 MATCH_CREATE_PAYLOAD = {
     "sport": "football",
@@ -1151,7 +1152,7 @@ def test_close_match_sends_push_to_confirmed_participants_excluding_organizer(
     sent_tokens: list[str] = []
     monkeypatch.setattr(
         "app.services.notification_service.httpx.post",
-        lambda url, json, timeout: sent_tokens.extend(m["to"] for m in json),
+        lambda url, json, timeout: record_push(sent_tokens, json),
     )
 
     response = client.post(
@@ -1187,7 +1188,7 @@ def test_approve_participant_sends_push_to_approved_user(
     sent_tokens: list[str] = []
     monkeypatch.setattr(
         "app.services.notification_service.httpx.post",
-        lambda url, json, timeout: sent_tokens.extend(m["to"] for m in json),
+        lambda url, json, timeout: record_push(sent_tokens, json),
     )
 
     response = client.post(
@@ -1197,3 +1198,77 @@ def test_approve_participant_sends_push_to_approved_user(
 
     assert response.status_code == 200
     assert sent_tokens == ["player-token"]
+
+
+def _setup_join_push(
+    client: TestClient,
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    requires_approval: bool,
+) -> tuple[Match, str, list[dict[str, object]]]:
+    """Partida de um organizador com push token registrado; devolve as mensagens enviadas à Expo."""
+    organizer_token = _register_and_login(client, email="organizer@example.com")
+    organizer_headers = {"Authorization": f"Bearer {organizer_token}"}
+    organizer = session.get(User, client.get("/users/me", headers=organizer_headers).json()["id"])
+    assert organizer is not None
+    match = _make_match(session, "match-1", organizer, max_participants=4)
+    match.requires_approval = requires_approval
+    session.add(match)
+    session.commit()
+    client.post(
+        "/users/me/push-token", json={"token": "organizer-token"}, headers=organizer_headers
+    )
+
+    sent: list[dict[str, object]] = []
+
+    def fake_post(url: str, json: list[dict[str, object]], timeout: float) -> Response:
+        sent.extend(json)
+        return Response(200, json={"data": [{"status": "ok"} for _ in json]})
+
+    monkeypatch.setattr("app.services.notification_service.httpx.post", fake_post)
+    player_token = _register_and_login(client, email="player@example.com")
+    return match, player_token, sent
+
+
+def test_join_request_sends_push_to_organizer(
+    db_client: tuple[TestClient, Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session = db_client
+    match, player_token, sent = _setup_join_push(client, session, monkeypatch, True)
+
+    response = _join(client, match.id, player_token)
+
+    assert response.status_code == 200
+    assert len(sent) == 1
+    assert sent[0]["to"] == "organizer-token"
+    assert sent[0]["title"] == "Nova solicitação"
+    assert sent[0]["body"] == f'Organizadora pediu para entrar em "{match.title}".'
+    assert sent[0]["data"] == {"type": "join_request", "matchId": match.id}
+
+
+def test_direct_join_sends_push_to_organizer(
+    db_client: tuple[TestClient, Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session = db_client
+    match, player_token, sent = _setup_join_push(client, session, monkeypatch, False)
+
+    response = _join(client, match.id, player_token)
+
+    assert response.status_code == 200
+    assert [m["to"] for m in sent] == ["organizer-token"]
+    assert sent[0]["title"] == "Novo participante"
+    assert sent[0]["data"] == {"type": "participant_joined", "matchId": match.id}
+
+
+def test_failed_join_does_not_send_push(
+    db_client: tuple[TestClient, Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session = db_client
+    match, player_token, sent = _setup_join_push(client, session, monkeypatch, False)
+    _join(client, match.id, player_token)
+    sent.clear()
+
+    response = _join(client, match.id, player_token)
+
+    assert response.status_code == 400
+    assert sent == []

@@ -58,3 +58,60 @@ def test_send_push_never_raises_on_network_failure(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(httpx, "post", fake_post)
 
     send_push(["ExponentPushToken[aaa]"], "Título", "Corpo")
+
+
+def _respond_with(response: httpx.Response) -> Any:
+    return lambda *args, **kwargs: response
+
+
+def test_send_push_logs_error_tickets_without_tokens(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    tickets = [
+        {"status": "ok", "id": "t1"},
+        {"status": "error", "message": "...", "details": {"error": "InvalidCredentials"}},
+        {"status": "error", "message": "...", "details": {"error": "DeviceNotRegistered"}},
+    ]
+    monkeypatch.setattr(httpx, "post", _respond_with(httpx.Response(200, json={"data": tickets})))
+
+    with caplog.at_level("WARNING"):
+        send_push([f"ExponentPushToken[{n}]" for n in "abc"], "T", "C")
+
+    assert "Expo recusou 2 de 3 push(es)" in caplog.text
+    assert "InvalidCredentials" in caplog.text
+    assert "DeviceNotRegistered" in caplog.text
+    assert "ExponentPushToken" not in caplog.text
+
+
+def test_send_push_logs_http_error_status(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(httpx, "post", _respond_with(httpx.Response(500, text="erro")))
+
+    with caplog.at_level("WARNING"):
+        send_push(["ExponentPushToken[a]"], "T", "C")
+
+    assert "HTTP 500" in caplog.text
+
+
+def test_send_push_logs_unexpected_response_body(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(httpx, "post", _respond_with(httpx.Response(200, text="não é json")))
+
+    with caplog.at_level("WARNING"):
+        send_push(["ExponentPushToken[a]"], "T", "C")
+
+    assert "Resposta inesperada da Expo" in caplog.text
+
+
+def test_send_push_does_not_log_when_all_tickets_ok(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    ok = httpx.Response(200, json={"data": [{"status": "ok", "id": "t1"}]})
+    monkeypatch.setattr(httpx, "post", _respond_with(ok))
+
+    with caplog.at_level("WARNING"):
+        send_push(["ExponentPushToken[a]"], "T", "C")
+
+    assert caplog.text == ""

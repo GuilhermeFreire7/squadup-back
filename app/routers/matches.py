@@ -102,7 +102,8 @@ def read_match_detail(
     response_model=MatchRead,
     summary="Participar de partida",
     description="Cria uma participação para o usuário autenticado: confirmada de imediato, "
-    "ou pendente se a partida exigir aprovação do organizador.",
+    "ou pendente se a partida exigir aprovação do organizador. O organizador é avisado por "
+    "push: novo participante, no primeiro caso, ou nova solicitação, no segundo.",
     responses=error_responses(
         *AUTH_ERRORS,
         (404, "MATCH_NOT_FOUND", "Partida não encontrada."),
@@ -113,10 +114,11 @@ def read_match_detail(
 )
 def join_match_route(
     match_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> MatchRead:
-    return join_match(session, match_id, current_user)
+    return join_match(session, match_id, current_user, background_tasks)
 
 
 @router.post(
