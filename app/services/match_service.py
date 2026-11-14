@@ -16,6 +16,21 @@ from app.services.user_service import build_public_profile
 
 MATCH_CREATED_SYSTEM_MESSAGE = "Partida criada. Bem-vindos!"
 DEFAULT_SEARCH_RADIUS_KM = 20.0
+FINISHED_STATUSES = (MatchStatus.CLOSED, MatchStatus.CANCELLED)
+
+
+def _listing_sort_key(match: Match) -> tuple[int, int, int]:
+    """Ordem da listagem: próximas partidas primeiro; encerradas/canceladas no fim.
+
+    Ativas (abertas ou lotadas) vêm por data e horário crescentes. Encerradas e canceladas
+    vêm depois, das mais recentes para as mais antigas. Sem isso, o banco devolve as
+    linhas na ordem física, que muda a cada inserção ou atualização.
+    """
+    day = match.date.toordinal()
+    seconds = match.time.hour * 3600 + match.time.minute * 60 + match.time.second
+    if match.status in FINISHED_STATUSES:
+        return (1, -day, -seconds)
+    return (0, day, seconds)
 
 
 def get_confirmed_count(session: Session, match_id: str) -> int:
@@ -107,7 +122,7 @@ def list_matches(
     if level is not None:
         query = query.where(Match.level == level)
 
-    matches = list(session.exec(query).all())
+    matches = sorted(session.exec(query).all(), key=_listing_sort_key)
 
     # Filtro/ordenação por distância só entra em jogo quando lat/lng são informados juntos
     # (radius_km sozinho não tem efeito).
@@ -124,6 +139,7 @@ def list_matches(
         results = [match for match in results if match.available_slots > 0]
 
     if geo_search:
+        # sort é estável: partidas à mesma distância mantêm a ordem por data acima.
         results.sort(key=lambda m: m.distance_km if m.distance_km is not None else float("inf"))
 
     return results

@@ -4,6 +4,13 @@
 
 ## Em andamento
 
+_**Ordenação da listagem de partidas (2026-11-14) — PR aberto:** branch
+`fix/ordenacao-partidas`. `GET /matches` não tinha `ORDER BY`, então o Postgres devolvia as
+linhas na ordem física: uma partida recém-criada (ou atualizada, como no ajuste de datas da demo)
+ia para o fim da lista do app. Agora: abertas/lotadas por data e horário crescentes; encerradas e
+canceladas no fim, das mais recentes para as mais antigas. Com busca por proximidade, a distância
+continua mandando (sort estável, a data desempata). Só back, sem build. Achado em teste no aparelho._
+
 _**Revisão geral 2026-11, item A7 operacional (2026-11-11) — PR aberto:** branch
 `chore/keep-alive-render`. Workflow agendado (`keep-alive.yml`) chama `GET /health` a cada 10 min
 para a API do Render não hibernar, em vez de um monitor externo (UptimeRobot), que exigiria criar

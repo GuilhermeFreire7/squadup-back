@@ -98,6 +98,7 @@ def _make_match(
     sport: Sport = Sport.FOOTBALL,
     max_participants: int = 4,
     match_date: date = date(2026, 5, 25),
+    match_time: time = time(9, 0),
     location: str = "Arena Botafogo",
     level: ExperienceLevel = ExperienceLevel.INTERMEDIATE,
     status: MatchStatus = MatchStatus.OPEN,
@@ -110,7 +111,7 @@ def _make_match(
         title=f"Partida {id_}",
         location=location,
         date=match_date,
-        time=time(9, 0),
+        time=match_time,
         max_participants=max_participants,
         level=level,
         organizer_id=organizer.id,
@@ -137,6 +138,61 @@ def test_list_matches_returns_all_without_filters(
     assert response.status_code == 200
     body = response.json()
     assert len(body) == 2
+
+
+def test_list_matches_orders_upcoming_by_date_and_time(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    # Inseridas fora de ordem: a resposta não pode depender da ordem de inserção.
+    _make_match(session, "later-day", organizer, match_date=date(2026, 6, 2))
+    _make_match(
+        session, "same-day-evening", organizer, match_date=date(2026, 6, 1), match_time=time(20)
+    )
+    _make_match(
+        session, "same-day-morning", organizer, match_date=date(2026, 6, 1), match_time=time(8)
+    )
+
+    response = client.get("/matches")
+
+    assert response.status_code == 200
+    assert [m["id"] for m in response.json()] == [
+        "same-day-morning",
+        "same-day-evening",
+        "later-day",
+    ]
+
+
+def test_list_matches_puts_finished_last_most_recent_first(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(
+        session, "closed-old", organizer, match_date=date(2026, 5, 1), status=MatchStatus.CLOSED
+    )
+    _make_match(
+        session,
+        "cancelled-recent",
+        organizer,
+        match_date=date(2026, 5, 10),
+        status=MatchStatus.CANCELLED,
+    )
+    _make_match(session, "open-late", organizer, match_date=date(2026, 7, 1))
+    _make_match(
+        session, "full-soon", organizer, match_date=date(2026, 6, 1), status=MatchStatus.FULL
+    )
+
+    response = client.get("/matches")
+
+    assert response.status_code == 200
+    assert [m["id"] for m in response.json()] == [
+        "full-soon",
+        "open-late",
+        "cancelled-recent",
+        "closed-old",
+    ]
 
 
 def test_list_matches_filters_by_sport(db_client: tuple[TestClient, Session]) -> None:
