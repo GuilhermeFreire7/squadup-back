@@ -16,7 +16,9 @@ passaram a bater com o dia da semana do título, e nenhuma partida fica em 24/12
 23/12→20/12 (domingo), `match-7` 25/12→21/12, `match-3` 24/12→22/12, `match-4` 26/12→23/12
 (quarta), `match-5` 29/12→26/12 (sábado), `match-8` 27/12→07/01 (quinta), `match-13` (encerrada,
 "de maio") 09/10→31/05. Rodar `app.demo_dates` de novo continua seguro, porque ele desloca em
-semanas inteiras e preserva o dia da semana._
+semanas inteiras e preserva o dia da semana. As duas partidas de teste criadas no aparelho pela
+conta da demo ("Pelada na praia", 14/11, e "Pelada no Jardim Oceanico", 15/11, só com o
+organizador) foram passadas para `CANCELLED`, para não aparecerem no topo durante a defesa._
 
 _**Ordenação da listagem de partidas (2026-11-14) — PR aberto:** branch
 `fix/ordenacao-partidas`. `GET /matches` não tinha `ORDER BY`, então o Postgres devolvia as
