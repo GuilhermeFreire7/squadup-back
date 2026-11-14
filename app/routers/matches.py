@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlmodel import Session
 
 from app.core.database import get_session
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_optional_current_user
 from app.models.enums import ExperienceLevel, Sport
 from app.models.user import User
 from app.schemas.errors import AUTH_ERRORS, error_responses
@@ -46,7 +46,10 @@ def create_new_match(
     summary="Listar partidas",
     description="Lista partidas com filtros opcionais por esporte, data, local, nível e "
     "disponibilidade de vagas. Quando `lat`/`lng` são informados, filtra por raio (`radius_km`, "
-    "default 20km) e ordena por distância; sem eles, o comportamento é o de sempre.",
+    "default 20km) e ordena por distância; sem eles, o comportamento é o de sempre. "
+    "Partidas abertas ou lotadas com data já passada (fuso de Brasília) ficam fora da lista, "
+    "exceto para o organizador e os participantes, identificados pelo token quando enviado. "
+    "A rota continua pública: sem token, ou com token inválido, a lista é a anônima.",
 )
 def read_matches(
     sport: Sport | None = Query(default=None, examples=[Sport.FOOTBALL]),
@@ -57,6 +60,7 @@ def read_matches(
     lat: float | None = Query(default=None, ge=-90, le=90, examples=[-22.9519]),
     lng: float | None = Query(default=None, ge=-180, le=180, examples=[-43.1889]),
     radius_km: float = Query(default=DEFAULT_SEARCH_RADIUS_KM, gt=0, examples=[20.0]),
+    viewer: User | None = Depends(get_optional_current_user),
     session: Session = Depends(get_session),
 ) -> list[MatchRead]:
     return list_matches(
@@ -69,6 +73,7 @@ def read_matches(
         lat=lat,
         lng=lng,
         radius_km=radius_km,
+        viewer_id=viewer.id if viewer is not None else None,
     )
 
 

@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from typing import cast
 
 import pytest
@@ -15,6 +15,8 @@ from app.models.enums import ExperienceLevel, MatchStatus, ParticipationStatus, 
 from app.models.match import Match
 from app.models.participant import Participant
 from app.models.user import User
+from app.services import match_service
+from app.services.match_service import local_today
 
 MATCH_CREATE_PAYLOAD = {
     "sport": "football",
@@ -42,6 +44,14 @@ def _register_and_login(client: TestClient, email: str = "organizer@example.com"
         json={"email": email, "password": register_payload["password"]},
     )
     return str(login_response.json()["access_token"])
+
+
+TEST_TODAY = date(2026, 1, 1)
+
+
+@pytest.fixture(autouse=True)
+def _freeze_today(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(match_service, "local_today", lambda: TEST_TODAY)
 
 
 @pytest.fixture
@@ -193,6 +203,96 @@ def test_list_matches_puts_finished_last_most_recent_first(
         "cancelled-recent",
         "closed-old",
     ]
+
+
+def _user_id(client: TestClient, token: str) -> str:
+    response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+    return str(response.json()["id"])
+
+
+def test_local_today_uses_brasilia_time() -> None:
+    # 02:00 UTC ainda é o dia anterior em Brasília (UTC-3).
+    assert local_today(datetime(2026, 12, 20, 2, 0, tzinfo=UTC)) == date(2026, 12, 19)
+    assert local_today(datetime(2026, 12, 20, 3, 0, tzinfo=UTC)) == date(2026, 12, 20)
+
+
+def test_list_matches_hides_active_matches_in_the_past(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "open-past", organizer, match_date=date(2025, 12, 31))
+    _make_match(
+        session, "full-past", organizer, match_date=date(2025, 12, 31), status=MatchStatus.FULL
+    )
+    _make_match(session, "open-today", organizer, match_date=TEST_TODAY)
+    _make_match(
+        session, "closed-past", organizer, match_date=date(2025, 12, 1), status=MatchStatus.CLOSED
+    )
+    _make_match(
+        session,
+        "cancelled-past",
+        organizer,
+        match_date=date(2025, 12, 2),
+        status=MatchStatus.CANCELLED,
+    )
+
+    response = client.get("/matches")
+
+    assert response.status_code == 200
+    assert [m["id"] for m in response.json()] == ["open-today", "cancelled-past", "closed-past"]
+
+
+def test_list_matches_keeps_past_active_match_for_its_organizer(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    token = _register_and_login(client, "org@example.com")
+    organizer = session.get(User, _user_id(client, token))
+    assert organizer is not None
+    _make_match(session, "mine-past", organizer, match_date=date(2025, 12, 31))
+
+    as_organizer = client.get("/matches", headers={"Authorization": f"Bearer {token}"})
+    other_token = _register_and_login(client, "other@example.com")
+    as_other = client.get("/matches", headers={"Authorization": f"Bearer {other_token}"})
+
+    assert [m["id"] for m in as_organizer.json()] == ["mine-past"]
+    assert as_other.json() == []
+
+
+def test_list_matches_keeps_past_active_match_for_its_participants(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "played-past", organizer, match_date=date(2025, 12, 31))
+    token = _register_and_login(client, "player@example.com")
+    session.add(
+        Participant(
+            match_id="played-past",
+            user_id=_user_id(client, token),
+            status=ParticipationStatus.CONFIRMED,
+        )
+    )
+    session.commit()
+
+    response = client.get("/matches", headers={"Authorization": f"Bearer {token}"})
+
+    assert [m["id"] for m in response.json()] == ["played-past"]
+
+
+def test_list_matches_with_invalid_token_is_treated_as_anonymous(
+    db_client: tuple[TestClient, Session],
+) -> None:
+    client, session = db_client
+    organizer = _make_user(session, "u1", "Alice")
+    _make_match(session, "open-future", organizer, match_date=date(2026, 2, 1))
+    _make_match(session, "open-past", organizer, match_date=date(2025, 12, 31))
+
+    response = client.get("/matches", headers={"Authorization": "Bearer token-invalido"})
+
+    assert response.status_code == 200
+    assert [m["id"] for m in response.json()] == ["open-future"]
 
 
 def test_list_matches_filters_by_sport(db_client: tuple[TestClient, Session]) -> None:

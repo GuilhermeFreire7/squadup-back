@@ -4,6 +4,14 @@
 
 ## Em andamento
 
+_**Partidas passadas fora da listagem (2026-11-14) — PR aberto:** branch
+`fix/ocultar-partidas-passadas`. Com a ordenação por data (#79), partidas `open`/`full` com data
+passada, que ninguém encerrou (por exemplo as de teste no aparelho), iriam para o topo da Home.
+Agora `GET /matches` as omite, com a data de hoje no fuso de Brasília (UTC-3 fixo). As exceções
+são o organizador e os participantes, identificados pelo token quando ele vem (nova dependência
+`get_optional_current_user`; a rota continua pública e token inválido = anônimo), porque o app
+não tem a tela "Minhas partidas" e eles ainda precisam encerrar e avaliar. Só back, sem build._
+
 _**Ordenação da listagem de partidas (2026-11-14) — PR aberto:** branch
 `fix/ordenacao-partidas`. `GET /matches` não tinha `ORDER BY`, então o Postgres devolvia as
 linhas na ordem física: uma partida recém-criada (ou atualizada, como no ajuste de datas da demo)
