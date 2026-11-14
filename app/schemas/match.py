@@ -3,7 +3,7 @@ from datetime import time as time_
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import ExperienceLevel, MatchStatus, Sport
+from app.models.enums import ExperienceLevel, MatchStatus, ParticipationStatus, Sport
 from app.schemas.user import PublicProfileRead
 
 
@@ -69,3 +69,24 @@ class MatchRead(BaseModel):
 class MatchDetailRead(MatchRead):
     organizer: PublicProfileRead
     participants: list[ParticipantRead]
+
+
+class MyMatchRead(MatchRead):
+    """Partida vista por quem organiza ou participa dela (aba "Minhas partidas" do app)."""
+
+    is_organizer: bool = Field(examples=[True])
+    my_status: ParticipationStatus | None = Field(
+        default=None,
+        examples=[ParticipationStatus.CONFIRMED],
+        description="Participação do usuário: `confirmed` ou `pending` (aguardando aprovação).",
+    )
+    pending_requests: int = Field(
+        default=0,
+        examples=[2],
+        description="Pedidos de entrada esperando aprovação. Só contado para o organizador; "
+        "para os demais, sempre 0.",
+    )
+    is_past: bool = Field(
+        examples=[False],
+        description="Encerrada, cancelada ou com data já passada (fuso de Brasília).",
+    )

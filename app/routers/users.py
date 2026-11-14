@@ -5,9 +5,11 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.errors import AUTH_ERRORS, error_responses
+from app.schemas.match import MyMatchRead
 from app.schemas.push_token import PushTokenCreate
 from app.schemas.user import MyProfileRead, PublicProfileRead, UserUpdate
 from app.services import storage_service
+from app.services.my_matches_service import list_my_matches
 from app.services.push_token_service import register_push_token
 from app.services.storage_service import ALLOWED_AVATAR_CONTENT_TYPES, MAX_AVATAR_SIZE_BYTES
 from app.services.user_service import (
@@ -32,6 +34,24 @@ def read_my_profile(
     session: Session = Depends(get_session),
 ) -> MyProfileRead:
     return build_my_profile(session, current_user)
+
+
+@router.get(
+    "/me/matches",
+    response_model=list[MyMatchRead],
+    summary="Minhas partidas",
+    description="Partidas que o usuário autenticado organiza ou das quais participa "
+    "(confirmado ou aguardando aprovação). Vêm primeiro as próximas, da mais perto para a mais "
+    "distante, e depois as anteriores (encerradas, canceladas ou com data passada), da mais "
+    "recente para a mais antiga. Para o organizador, `pending_requests` traz quantos pedidos "
+    "de entrada esperam aprovação.",
+    responses=error_responses(*AUTH_ERRORS),
+)
+def read_my_matches(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[MyMatchRead]:
+    return list_my_matches(session, current_user)
 
 
 @router.patch(

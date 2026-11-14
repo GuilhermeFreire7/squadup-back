@@ -4,6 +4,15 @@
 
 ## Em andamento
 
+_**"Minhas partidas" (2026-11-14) — PR aberto:** branch `feat/minhas-partidas`. No teste com dois
+aparelhos, o organizador precisou caçar a própria partida na lista geral. Novo
+`GET /users/me/matches` (autenticado): partidas que o usuário organiza ou das quais participa
+(confirmado ou pendente; participação cancelada fica de fora), com `is_organizer`, `my_status`,
+`pending_requests` (pedidos esperando aprovação, só para o organizador) e `is_past` (encerrada,
+cancelada ou com data passada, fuso de Brasília). Próximas primeiro, por data crescente; depois as
+anteriores, das mais recentes para as mais antigas. Serviço em `my_matches_service.py`, porque
+`match_service.py` já tem 438 linhas. Precisa da tela no app (front, mesmo nome de branch)._
+
 _**Partidas passadas fora da listagem (2026-11-14) — PR aberto:** branch
 `fix/ocultar-partidas-passadas`. Com a ordenação por data (#79), partidas `open`/`full` com data
 passada, que ninguém encerrou (por exemplo as de teste no aparelho), iriam para o topo da Home.
